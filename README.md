@@ -83,7 +83,7 @@ pip install -e .
 ## Get started
 
 > [!IMPORTANT]  
-> Before running the following code, modify `consolidate()` function in lerobot.
+> 1.Before running the following code, modify `consolidate()` function in lerobot.
 > ```python
 > def consolidate(self, run_compute_stats: bool = True, keep_image_files: bool = False, stat_kwargs: dict = {}) -> None:
 >     ...
@@ -92,6 +92,17 @@ pip install -e .
 >         # TODO(aliberts): refactor stats in save_episodes
 >         self.meta.stats = compute_stats(self, **stat_kwargs)
 >     ...
+> ```
+> 2.for `bc_z` dataset, two source codes need to be modified.
+> 
+> path: `lerobot/common/datasets/video_utils.py`
+> 
+> method: `encode_video_frames`
+> ```python
+> # add the following content to line 141:
+> vf: str = "pad=ceil(iw/2)*2:ceil(ih/2)*2",
+> # Add the following content to line 171:
+> ffmpeg_args["-vf"] = vf
 > ```
 
 Download source code:
