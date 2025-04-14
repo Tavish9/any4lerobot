@@ -27,7 +27,7 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
 ## ✨ Features
 - ​**​Data Conversion​**​:
     - [x] [Open X-Embodiment to LeRobot](./openx2lerobot/README.md)
-    - [ ] AgiBot-World to LeRobot
+    - [x] [AgiBot-World to LeRobot](./agibot2lerobot/README.md)
     - [ ] RoboMIND to LeRobot
     - [ ] LeRobot to RLDS
 
