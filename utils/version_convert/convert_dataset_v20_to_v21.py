@@ -110,6 +110,12 @@ if __name__ == "__main__":
         default=4,
         help="Number of workers for parallelizing stats compute. Defaults to 4.",
     )
+    parser.add_argument(
+        "--video-backend",
+        type=str,
+        default="pyav",
+        help="Video Backend",
+    )
 
     args = parser.parse_args()
     convert_dataset(**vars(args))
