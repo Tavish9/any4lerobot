@@ -138,6 +138,13 @@ if __name__ == "__main__":
         help="Number of workers for parallelizing stats compute. Defaults to 4.",
     )
     parser.add_argument(
+        "--video-backend",
+        type=str,
+        default="pyav",
+        choices=["pyav", "decorid"],
+        help="Video backend to use. Defaults to pyav.",
+    )
+    parser.add_argument(
         "--use-process-pool",
         action="store_true",
         help="Use process pool for parallelizing stats compute. Defaults to False.",
