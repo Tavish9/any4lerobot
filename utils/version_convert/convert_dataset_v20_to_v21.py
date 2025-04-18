@@ -38,7 +38,7 @@ from huggingface_hub import HfApi
 
 from lerobot.common.datasets.lerobot_dataset import CODEBASE_VERSION, LeRobotDataset
 from lerobot.common.datasets.utils import EPISODES_STATS_PATH, STATS_PATH, load_stats, write_info
-from lerobot.common.datasets.v21.convert_stats import check_aggregate_stats, convert_stats, convert_stats_parallel
+from lerobot.common.datasets.v21.convert_stats import check_aggregate_stats, convert_stats, convert_stats_by_process_pool
 
 V20 = "v2.0"
 V21 = "v2.1"
@@ -58,14 +58,18 @@ def convert_dataset(
     branch: str | None = None,
     num_workers: int = 4,
     video_backend: str = "pyav",
+    use_process_pool: bool = True,
 ):
     with SuppressWarnings():
         dataset = LeRobotDataset(repo_id, revision=V20, force_cache_sync=True, video_backend=video_backend)
 
     if (dataset.root / EPISODES_STATS_PATH).is_file():
         (dataset.root / EPISODES_STATS_PATH).unlink()
-
-    convert_stats_parallel(dataset, num_workers=num_workers)
+    
+    if use_process_pool:
+        convert_stats_by_process_pool(dataset, num_workers=num_workers)
+    else:
+        convert_stats(dataset, num_workers=num_workers)
     ref_stats = load_stats(dataset.root)
     check_aggregate_stats(dataset, ref_stats)
 
@@ -111,10 +115,9 @@ if __name__ == "__main__":
         help="Number of workers for parallelizing stats compute. Defaults to 4.",
     )
     parser.add_argument(
-        "--video-backend",
-        type=str,
-        default="pyav",
-        help="Video Backend",
+        "--use-process-pool",
+        action="store_true",
+        help="Use process pool for parallelizing stats compute. Defaults to False.",
     )
 
     args = parser.parse_args()
