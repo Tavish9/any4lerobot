@@ -103,8 +103,8 @@ Table I. dataset conversation time use stats.
 
 | dataset              | episodes | video_backend | method  | workers | video_encode | Time  |
 | -------------------- | -------- | ------------- | ------- | ------- | ------------ | ----- |
-| bekerley_autolab_ur5 | 896      | pyav          | thread  | 16      | libx264      | 10:56 |
-| bekerley_autolab_ur5 | 896      | pyav          | process | 16      | libx264      | --    |
-| bekerley_autolab_ur5 | 896      | decord        | thread  | 16      | libx264      | 11:44 |
-| bekerley_autolab_ur5 | 896      | decord        | process | 16      | libx264      | 14:26 |
+| berkeley_autolab_ur5 | 896      | pyav          | thread  | 16      | libx264      | 10:56 |
+| berkeley_autolab_ur5 | 896      | pyav          | process | 16      | libx264      | --    |
+| berkeley_autolab_ur5 | 896      | decord        | thread  | 16      | libx264      | 11:44 |
+| berkeley_autolab_ur5 | 896      | decord        | process | 16      | libx264      | 14:26 |
 
