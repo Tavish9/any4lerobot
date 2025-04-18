@@ -127,7 +127,7 @@ if __name__ == "__main__":
         "--video-backend",
         type=str,
         default="pyav",
-        choices=["pyav", "decorid"],
+        choices=["pyav", "decord"],
         help="Video backend to use. Defaults to pyav.",
     )
     parser.add_argument(

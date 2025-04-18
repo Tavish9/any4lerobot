@@ -26,3 +26,10 @@ python lerobot/common/datasets/v21/convert_dataset_v20_to_v21.py \
     --video-backend=decord \
     --use-process-pool
 ```
+
+||||||
+|--|--|--|--|--|
+|pyav|thread|16|libx264|10:56|
+|pyav|process|16|libx264||
+|decord|thread|16|libx264|11:44|
+|decord|process|16|libx264|14:26|
