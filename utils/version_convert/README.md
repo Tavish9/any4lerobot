@@ -1,11 +1,22 @@
-This script will help you convert any LeRobot dataset using process pool and decord video backend 
-from codebase version 2.0 to 2.1.
+# **OpenX to LeRobot Utils **
 
-Usage:
+## What's New in This Script
 
-Please install decord first: https://github.com/dmlc/decord
+Key improvements:
 
-the default usage, this equal to lerobot projects, this will use dataset from huggingface hub, delete stats.json and push to huggingface hub (multi-thread and pyav video backend), you can:
+- support loading the local dataset
+- support use decord as video backend (NOTICE: decord is not supported to 'libsvtav1' encode method, we test it using 'libx264', ref: https://github.com/dmlc/decord/issues/319)
+- support process pool for huge dataset like droid to accelerate conversation speed
+
+## Installation
+
+Install decord: https://github.com/dmlc/decord
+
+## Get Start
+
+### Default usage
+
+This equal to lerobot projects, it will use dataset from huggingface hub, delete `stats.json` and push to huggingface hub (multi-thread and `pyav` as video backend), you can:
 
 ```bash
 python lerobot/common/datasets/v21/convert_dataset_v20_to_v21.py \
@@ -16,20 +27,84 @@ python lerobot/common/datasets/v21/convert_dataset_v20_to_v21.py \
     --video-backend=pyav
 ```
 
-if you want to don't delete stats.json form lerobot dataset v2.0, use local dataset and don't push to huggingface hub, this will use decord video backend and thread pool to accelerate processing, you can:
+
+
+### Using `decord` as video backend
+
+> [!IMPORTANT]
+>
+> 1.We recommend use default method to convert stats and use decord and process pool if you want to convert huge dataset like droid.
+>
+> 2.If you want to use decord as video backend, you should modify the `video_utils.py` source code from lerobot:
+>
+> ```python
+> def decode_video_frames(
+>     video_path: Path | str,
+>     timestamps: list[float],
+>     tolerance_s: float,
+>     backend: str | None = None,
+> ) -> torch.Tensor:
+>     """
+>     Decodes video frames using the specified backend.
+> 
+>     Args:
+>         video_path (Path): Path to the video file.
+>         timestamps (list[float]): List of timestamps to extract frames.
+>         tolerance_s (float): Allowed deviation in seconds for frame retrieval.
+>         backend (str, optional): Backend to use for decoding. Defaults to "torchcodec" when available in the platform; otherwise, defaults to "pyav"..
+> 
+>     Returns:
+>         torch.Tensor: Decoded frames.
+> 
+>     Currently supports torchcodec on cpu and pyav.
+>     """
+>     if backend is None:
+>         backend = get_safe_default_codec()
+>     if backend == "torchcodec":
+>         return decode_video_frames_torchcodec(video_path, timestamps, tolerance_s)
+>     elif backend in ["pyav", "video_reader"]:
+>         return decode_video_frames_torchvision(video_path, timestamps, tolerance_s, backend)
+>     elif backend == "decord":
+>         return decode_video_frames_decord(video_path, timestamps)
+>     else:
+>         raise ValueError(f"Unsupported video backend: {backend}")
+>     
+>     
+> def decode_video_frames_decord(
+>     video_path: Path | str,
+>     timestamps: list[float],
+> ) -> torch.Tensor:
+>     video_path = str(video_path)
+>     vr = decord.VideoReader(video_path)
+>     num_frames = len(vr)
+>     frame_ts: np.ndarray = vr.get_frame_timestamp(range(num_frames))
+>     indices = np.abs(frame_ts[:, :1] - timestamps).argmin(axis=0)
+>     frames = vr.get_batch(indices)
+>     
+>     frames_tensor = torch.tensor(frames.asnumpy()).type(torch.float32).permute(0, 3, 1, 2) / 255
+>     return frames_tensor
+> ```
+
+This will load local dataset, use `decord` as video backend and process pool, you can:
 
 ```bash
 python lerobot/common/datasets/v21/convert_dataset_v20_to_v21.py \
     --repo-id=aliberts/koch_tutorial \
     --root=/home/path/to/your/lerobot/dataset/path \
-    --num-workers=32 \
+    --num-workers=8 \
     --video-backend=decord \
     --use-process-pool
+    
 ```
 
-||||||
-|--|--|--|--|--|
-|pyav|thread|16|libx264|10:56|
-|pyav|process|16|libx264||
-|decord|thread|16|libx264|11:44|
-|decord|process|16|libx264|14:26|
+### Speed Test
+
+Table I. dataset conversation time use stats.
+
+| dataset              | episodes | video_backend | method  | workers | video_encode | Time  |
+| -------------------- | -------- | ------------- | ------- | ------- | ------------ | ----- |
+| bekerley_autolab_ur5 | 896      | pyav          | thread  | 16      | libx264      | 10:56 |
+| bekerley_autolab_ur5 | 896      | pyav          | process | 16      | libx264      | --    |
+| bekerley_autolab_ur5 | 896      | decord        | thread  | 16      | libx264      | 11:44 |
+| bekerley_autolab_ur5 | 896      | decord        | process | 16      | libx264      | 14:26 |
+
