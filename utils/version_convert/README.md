@@ -1,4 +1,4 @@
-# **OpenX to LeRobot Utils **
+# OpenX to LeRobot Utils
 
 ## What's New in This Script
 
