@@ -55,13 +55,19 @@ class SuppressWarnings:
 
 def convert_dataset(
     repo_id: str,
+    root: str | None = None,
+    push_to_hub: bool = False,
+    delete_old_stats: bool = False,
     branch: str | None = None,
     num_workers: int = 4,
     video_backend: str = "pyav",
     use_process_pool: bool = True,
 ):
     with SuppressWarnings():
-        dataset = LeRobotDataset(repo_id, revision=V20, force_cache_sync=True, video_backend=video_backend)
+        if root is not None:
+            dataset = LeRobotDataset(repo_id, root, revision=V20, video_backend=video_backend)
+        else:
+            dataset = LeRobotDataset(repo_id, revision=V20, force_cache_sync=True, video_backend=video_backend)
 
     if (dataset.root / EPISODES_STATS_PATH).is_file():
         (dataset.root / EPISODES_STATS_PATH).unlink()
@@ -76,21 +82,22 @@ def convert_dataset(
     dataset.meta.info["codebase_version"] = CODEBASE_VERSION
     write_info(dataset.meta.info, dataset.root)
 
-    dataset.push_to_hub(branch=branch, tag_version=False, allow_patterns="meta/")
-
+    if push_to_hub:
+        dataset.push_to_hub(branch=branch, tag_version=False, allow_patterns="meta/")
+        
     # delete old stats.json file
-    if (dataset.root / STATS_PATH).is_file:
+    if delete_old_stats and (dataset.root / STATS_PATH).is_file:
         (dataset.root / STATS_PATH).unlink()
-
+        
     hub_api = HfApi()
-    if hub_api.file_exists(
+    if delete_old_stats and hub_api.file_exists(
         repo_id=dataset.repo_id, filename=STATS_PATH, revision=branch, repo_type="dataset"
     ):
         hub_api.delete_file(
             path_in_repo=STATS_PATH, repo_id=dataset.repo_id, revision=branch, repo_type="dataset"
         )
-
-    hub_api.create_tag(repo_id, tag=CODEBASE_VERSION, revision=branch, repo_type="dataset")
+    if push_to_hub:
+        hub_api.create_tag(repo_id, tag=CODEBASE_VERSION, revision=branch, repo_type="dataset")
 
 
 if __name__ == "__main__":
@@ -101,6 +108,22 @@ if __name__ == "__main__":
         required=True,
         help="Repository identifier on Hugging Face: a community or a user name `/` the name of the dataset "
         "(e.g. `lerobot/pusht`, `cadene/aloha_sim_insertion_human`).",
+    )
+    parser.add_argument(
+        "--root",
+        type=str,
+        default=None,
+        help="Path to the local dataset root directory. If not provided, the script will use the dataset from local.",
+    )
+    parser.add_argument(
+        "--push-to-hub",
+        action="store_true",
+        help="Push the dataset to the hub after conversion. Defaults to False.",
+    )
+    parser.add_argument(
+        "--delete-old-stats",
+        action="store_true",
+        help="Delete the old stats.json file after conversion. Defaults to False.",
     )
     parser.add_argument(
         "--branch",
