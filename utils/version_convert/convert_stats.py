@@ -12,24 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from multiprocessing import cpu_count
 
 import numpy as np
-from tqdm import tqdm
-from multiprocessing import cpu_count
-from concurrent.futures import ProcessPoolExecutor, as_completed
-
-from lerobot.common.datasets.compute_stats import aggregate_stats, get_feature_stats, sample_indices
+from lerobot.common.datasets.compute_stats import get_feature_stats
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 from lerobot.common.datasets.utils import write_episode_stats
-
-
-def sample_episode_video_frames(dataset: LeRobotDataset, episode_index: int, ft_key: str) -> np.ndarray:
-    ep_len = dataset.meta.episodes[episode_index]["length"]
-    sampled_indices = sample_indices(ep_len)
-    query_timestamps = dataset._get_query_timestamps(0.0, {ft_key: sampled_indices})
-    video_frames = dataset._query_videos(query_timestamps, episode_index)
-    return video_frames[ft_key].numpy()
+from lerobot.common.datasets.v21.convert_stats import sample_episode_video_frames
+from tqdm import tqdm
 
 
 def convert_episode_stats(dataset: LeRobotDataset, ep_idx: int, is_parallel: bool = False):
@@ -50,53 +41,26 @@ def convert_episode_stats(dataset: LeRobotDataset, ep_idx: int, is_parallel: boo
         ep_stats[key] = get_feature_stats(ep_ft_data, axis=axes_to_reduce, keepdims=keepdims)
 
         if ft["dtype"] in ["image", "video"]:  # remove batch dim
-            ep_stats[key] = {
-                k: v if k == "count" else np.squeeze(v, axis=0) for k, v in ep_stats[key].items()
-            }
+            ep_stats[key] = {k: v if k == "count" else np.squeeze(v, axis=0) for k, v in ep_stats[key].items()}
 
     if not is_parallel:
         dataset.meta.episodes_stats[ep_idx] = ep_stats
-    
+
     return ep_stats, ep_idx
-
-
-def convert_stats(dataset: LeRobotDataset, num_workers: int = 0):
-    assert dataset.episodes is None
-    print("Computing episodes stats")
-    total_episodes = dataset.meta.total_episodes
-    if num_workers > 0:
-        with ThreadPoolExecutor(max_workers=num_workers) as executor:
-            futures = {
-                executor.submit(convert_episode_stats, dataset, ep_idx): ep_idx
-                for ep_idx in range(total_episodes)
-            }
-            for future in tqdm(as_completed(futures), total=total_episodes):
-                future.result()
-    else:
-        for ep_idx in tqdm(range(total_episodes)):
-            convert_episode_stats(dataset, ep_idx)
-
-    for ep_idx in tqdm(range(total_episodes)):
-        write_episode_stats(ep_idx, dataset.meta.episodes_stats[ep_idx], dataset.root)
 
 
 def convert_stats_by_process_pool(dataset: LeRobotDataset, num_workers: int = 0):
     """Convert stats in parallel using multiple process."""
     assert dataset.episodes is None
-    
+
     total_episodes = dataset.meta.total_episodes
     futures = []
-    
+
     if num_workers > 0:
         max_workers = min(cpu_count() - 1, num_workers)
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             for ep_idx in range(total_episodes):
-                future = executor.submit(
-                    convert_episode_stats, 
-                    dataset, 
-                    ep_idx
-                )
-                futures.append(future)
+                futures.append(executor.submit(convert_episode_stats, dataset, ep_idx, True))
             for future in tqdm(as_completed(futures), total=total_episodes, desc="Converting episodes stats"):
                 ep_stats, ep_idx = future.result()
                 dataset.meta.episodes_stats[ep_idx] = ep_stats
@@ -106,27 +70,3 @@ def convert_stats_by_process_pool(dataset: LeRobotDataset, num_workers: int = 0)
 
     for ep_idx in tqdm(range(total_episodes)):
         write_episode_stats(ep_idx, dataset.meta.episodes_stats[ep_idx], dataset.root)
-        
-
-def check_aggregate_stats(
-    dataset: LeRobotDataset,
-    reference_stats: dict[str, dict[str, np.ndarray]],
-    video_rtol_atol: tuple[float] = (1e-2, 1e-2),
-    default_rtol_atol: tuple[float] = (5e-6, 6e-5),
-):
-    """Verifies that the aggregated stats from episodes_stats are close to reference stats."""
-    agg_stats = aggregate_stats(list(dataset.meta.episodes_stats.values()))
-    for key, ft in dataset.features.items():
-        # These values might need some fine-tuning
-        if ft["dtype"] == "video":
-            # to account for image sub-sampling
-            rtol, atol = video_rtol_atol
-        else:
-            rtol, atol = default_rtol_atol
-
-        for stat, val in agg_stats[key].items():
-            if key in reference_stats and stat in reference_stats[key]:
-                err_msg = f"feature='{key}' stats='{stat}'"
-                np.testing.assert_allclose(
-                    val, reference_stats[key][stat], rtol=rtol, atol=atol, err_msg=err_msg
-                )

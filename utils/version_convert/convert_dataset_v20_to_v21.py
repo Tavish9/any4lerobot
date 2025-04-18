@@ -32,25 +32,13 @@ python lerobot/common/datasets/v21/convert_dataset_v20_to_v21.py \
 """
 
 import argparse
-import logging
 
+from convert_stats import convert_stats_by_process_pool
 from huggingface_hub import HfApi
-
-from lerobot.common.datasets.lerobot_dataset import CODEBASE_VERSION, LeRobotDataset
+from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 from lerobot.common.datasets.utils import EPISODES_STATS_PATH, STATS_PATH, load_stats, write_info
-from lerobot.common.datasets.v21.convert_stats import check_aggregate_stats, convert_stats, convert_stats_by_process_pool
-
-V20 = "v2.0"
-V21 = "v2.1"
-
-
-class SuppressWarnings:
-    def __enter__(self):
-        self.previous_level = logging.getLogger().getEffectiveLevel()
-        logging.getLogger().setLevel(logging.ERROR)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        logging.getLogger().setLevel(self.previous_level)
+from lerobot.common.datasets.v21.convert_dataset_v20_to_v21 import V20, V21, SuppressWarnings
+from lerobot.common.datasets.v21.convert_stats import check_aggregate_stats, convert_stats
 
 
 def convert_dataset(
@@ -71,7 +59,7 @@ def convert_dataset(
 
     if (dataset.root / EPISODES_STATS_PATH).is_file():
         (dataset.root / EPISODES_STATS_PATH).unlink()
-    
+
     if use_process_pool:
         convert_stats_by_process_pool(dataset, num_workers=num_workers)
     else:
@@ -79,25 +67,23 @@ def convert_dataset(
     ref_stats = load_stats(dataset.root)
     check_aggregate_stats(dataset, ref_stats)
 
-    dataset.meta.info["codebase_version"] = CODEBASE_VERSION
+    dataset.meta.info["codebase_version"] = V21
     write_info(dataset.meta.info, dataset.root)
 
     if push_to_hub:
         dataset.push_to_hub(branch=branch, tag_version=False, allow_patterns="meta/")
-        
+
     # delete old stats.json file
     if delete_old_stats and (dataset.root / STATS_PATH).is_file:
         (dataset.root / STATS_PATH).unlink()
-        
+
     hub_api = HfApi()
     if delete_old_stats and hub_api.file_exists(
         repo_id=dataset.repo_id, filename=STATS_PATH, revision=branch, repo_type="dataset"
     ):
-        hub_api.delete_file(
-            path_in_repo=STATS_PATH, repo_id=dataset.repo_id, revision=branch, repo_type="dataset"
-        )
+        hub_api.delete_file(path_in_repo=STATS_PATH, repo_id=dataset.repo_id, revision=branch, repo_type="dataset")
     if push_to_hub:
-        hub_api.create_tag(repo_id, tag=CODEBASE_VERSION, revision=branch, repo_type="dataset")
+        hub_api.create_tag(repo_id, tag=V21, revision=branch, repo_type="dataset")
 
 
 if __name__ == "__main__":
