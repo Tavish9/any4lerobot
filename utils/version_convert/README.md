@@ -26,7 +26,7 @@ Install decord: https://github.com/dmlc/decord
 This equal to lerobot projects, it will use dataset from huggingface hub, delete `stats.json` and push to huggingface hub (multi-thread and `pyav` as video backend), you can:
 
 ```bash
-python lerobot/common/datasets/v21/convert_dataset_v20_to_v21.py \
+python utils/version_convert/convert_dataset_v20_to_v21.py \
     --repo-id=aliberts/koch_tutorial \
     --delete-old-stats \
     --push-to-hub \
@@ -95,7 +95,7 @@ python lerobot/common/datasets/v21/convert_dataset_v20_to_v21.py \
 This will load local dataset, use `decord` as video backend and process pool, you can:
 
 ```bash
-python lerobot/common/datasets/v21/convert_dataset_v20_to_v21.py \
+python utils/version_convert/convert_dataset_v20_to_v21.py \
     --repo-id=aliberts/koch_tutorial \
     --root=/home/path/to/your/lerobot/dataset/path \
     --num-workers=8 \
