@@ -14,19 +14,17 @@
 
 
 import argparse
-import numpy as np
-
-from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import cpu_count
 
+import numpy as np
 from huggingface_hub import HfApi
-
+from lerobot.common.datasets.compute_stats import get_feature_stats
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
-from lerobot.common.datasets.utils import write_episode_stats, EPISODES_STATS_PATH, STATS_PATH, load_stats, write_info
+from lerobot.common.datasets.utils import EPISODES_STATS_PATH, STATS_PATH, load_stats, write_episode_stats, write_info
 from lerobot.common.datasets.v21.convert_dataset_v20_to_v21 import V20, V21, SuppressWarnings
 from lerobot.common.datasets.v21.convert_stats import check_aggregate_stats, convert_stats, sample_episode_video_frames
-from lerobot.common.datasets.compute_stats import get_feature_stats
+from tqdm import tqdm
 
 
 def convert_episode_stats(dataset: LeRobotDataset, ep_idx: int, is_parallel: bool = False):
@@ -39,6 +37,7 @@ def convert_episode_stats(dataset: LeRobotDataset, ep_idx: int, is_parallel: boo
         if ft["dtype"] == "video":
             # We sample only for videos
             ep_ft_data = sample_episode_video_frames(dataset, ep_idx, key)
+            ep_ft_data = ep_ft_data[None, ...] if ep_ft_data.ndim == 3 else ep_ft_data
         else:
             ep_ft_data = np.array(ep_data[key])
 
