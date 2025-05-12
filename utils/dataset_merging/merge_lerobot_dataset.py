@@ -5,9 +5,11 @@ import os
 import shutil
 import traceback
 
+import cv2
 import numpy as np
 import pandas as pd
 
+from lerobot.common.datasets.video_utils import encode_video_frames
 
 def load_jsonl(file_path):
     """
@@ -888,6 +890,255 @@ def pad_parquet_data(source_path, target_path, original_dim=14, target_dim=18):
     return new_df
 
 
+def count_video_frames(video_path):
+    """
+    计算视频文件中的帧数
+    (Count the number of frames in a video file)
+
+    Args:
+        video_path (str): 视频文件路径 (Path to the video file)
+
+    Returns:
+        int: 帧数 (Frame count)
+    """
+    try:
+        import cv2
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            print(f"无法打开视频: {video_path} (Cannot open video: {video_path})")
+            return 0
+        
+        # 获取视频总帧数 (Get total frame count)
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        
+        # 确保帧数是准确的，有时cv2.CAP_PROP_FRAME_COUNT不准确
+        # (Make sure frame count is accurate, sometimes cv2.CAP_PROP_FRAME_COUNT is inaccurate)
+        if frame_count <= 0:
+            # 手动计算帧数 (Manually count frames)
+            frame_count = 0
+            success = True
+            while success:
+                success, _ = cap.read()
+                if success:
+                    frame_count += 1
+        
+        cap.release()
+        return frame_count
+    except ImportError:
+        print("警告: 未安装OpenCV，无法计算视频帧数 (Warning: OpenCV not installed, cannot count video frames)")
+        return 0
+    except Exception as e:
+        print(f"计算视频帧数时出错: {e} (Error counting video frames: {e})")
+        return 0
+
+def copy_images(source_folders, output_folder, episode_mapping, default_fps=20, fps=None):
+    """
+    从源文件夹复制图像文件到输出文件夹，保持正确的索引和结构，并验证图像数量与视频帧数匹配
+    (Copy image files from source folders to output folder, maintaining correct indices and structure,
+    and verify that image count matches video frame count)
+
+    Args:
+        source_folders (list): 源数据集文件夹路径列表 (List of source dataset folder paths)
+        output_folder (str): 输出文件夹路径 (Output folder path)
+        episode_mapping (list): 包含(旧文件夹,旧索引,新索引)元组的列表
+                               (List of tuples containing (old_folder, old_index, new_index))
+    
+    Returns:
+        dict: 验证结果，包含每个episode的预期帧数和实际图像数量
+              (Validation results containing expected frame count and actual image count for each episode)
+    """
+    if fps is None:
+        info_path = os.path.join(source_folders[0], "meta", "info.json")
+        if os.path.exists(info_path):
+            with open(info_path) as f:
+                info = json.load(f)
+                fps = info.get(
+                    "fps", default_fps
+                )  # 使用变量替代硬编码的20 (Use variable instead of hardcoded 20)
+        else:
+            fps = default_fps  # 使用变量替代硬编码的20 (Use variable instead of hardcoded 20)
+
+    print(f"使用FPS={fps} (Using FPS={fps})")
+    # 创建输出图像目录 (Create output image directory)
+    os.makedirs(os.path.join(output_folder, "images"), exist_ok=True)
+    
+    # 跟踪验证结果 (Track validation results)
+    validation_results = {}
+    total_copied = 0
+    
+    # 获取视频路径模板和视频键 (Get video path template and video keys)
+    info_path = os.path.join(source_folders[0], "meta", "info.json")
+    with open(info_path) as f:
+        info = json.load(f)
+    
+    video_path_template = info["video_path"]
+    image_keys = []
+    
+    for feature_name, feature_info in info["features"].items():
+        if feature_info.get("dtype") == "video":
+            image_keys.append(feature_name)
+
+    print(f"Found video/image keys: {image_keys}")
+    print("Starting to copy and validate images...")
+    
+    for old_folder, old_index, new_index in episode_mapping:
+        # 从episodes.jsonl获取预期的帧数 (Get expected frame count from episodes.jsonl)
+        episode_file = os.path.join(old_folder, "meta", "episodes.jsonl")
+        expected_frames = 0
+        if os.path.exists(episode_file):
+            episodes = load_jsonl(episode_file)
+            episode_data = next((ep for ep in episodes if ep["episode_index"] == old_index), None)
+            if episode_data:
+                expected_frames = episode_data["length"]
+        
+        # 存储验证信息 (Store validation info)
+        validation_key = f"{old_folder}_{old_index}"
+        if validation_key not in validation_results:
+            validation_results[validation_key] = {
+                "expected_frames": expected_frames,
+                "image_counts": {},
+                "video_frames": {},
+                "old_index": old_index,
+                "new_index": new_index
+            }
+        
+        # 检查对应的视频文件，计算实际帧数 (Check corresponding video files, count actual frames)
+        episode_chunk = old_index // info["chunks_size"]
+        new_episode_chunk = new_index // info["chunks_size"]
+        for image_dir in image_keys:
+            source_patterns = [
+                os.path.join(
+                    old_folder,
+                    video_path_template.format(
+                        episode_chunk=episode_chunk, video_key=image_dir, episode_index=old_index
+                    ),
+                ),
+                os.path.join(
+                    old_folder,
+                    video_path_template.format(episode_chunk=0, video_key=image_dir, episode_index=0),
+                ),
+                os.path.join(
+                    old_folder, f"videos/chunk-{episode_chunk:03d}/{image_dir}/episode_{old_index}.mp4"
+                ),
+                os.path.join(old_folder, f"videos/chunk-000/{image_dir}/episode_000000.mp4"),
+            ]
+            
+            video_path = None
+            for pattern in source_patterns:
+                if os.path.exists(pattern):
+                    video_path = pattern
+                    break
+                    
+            assert video_path, f"视频文件未找到: {image_dir} (Video file not found: {image_dir})"
+            
+            # 此episode的源图像目录 (Source directory for this episode's images)
+            source_image_dir = os.path.join(old_folder, "images", image_dir, f"episode_{old_index:06d}")
+            
+            # 如果此目录存在 (If this directory exists)
+            if os.path.exists(source_image_dir):
+                # 创建目标目录 (Create target directory)
+                target_image_dir = os.path.join(output_folder, "images", image_dir, f"episode_{new_index:06d}")
+                target_video_path = os.path.join(output_folder, video_path_template.format(
+                        episode_chunk=new_episode_chunk, video_key=image_dir, episode_index=new_index
+                    ),
+                )
+                os.makedirs(target_image_dir, exist_ok=True)
+                
+                # 计算帧数 (Count how many frames we have)
+                image_files = sorted([f for f in os.listdir(source_image_dir) if f.endswith('.png')])
+                num_images = len(image_files)
+                
+                print(f"复制 {num_images} 张图像，从 {source_image_dir} 到 {target_image_dir} (Copying {num_images} images from {source_image_dir} to {target_image_dir})")
+                
+                # 存储图像数量 (Store image count)
+                validation_results[validation_key]["image_counts"][image_dir] = num_images
+                    
+                # 复制每张图像，保持帧号 (Copy each image, maintaining frame number)
+                for image_file in image_files:
+                    try:
+                        # 从文件名中提取帧号 (Extract frame number from filename)
+                        frame_part = image_file.split('_')[1] if '_' in image_file else image_file
+                        frame_num = int(frame_part.split('.')[0])
+                        
+                        # 复制文件 (Copy the file)
+                        dest_file = os.path.join(target_image_dir, f"frame_{frame_num:06d}.png")
+                        shutil.copy2(
+                            os.path.join(source_image_dir, image_file),
+                            dest_file
+                        )
+                        total_copied += 1
+                    except Exception as e:
+                        print(f"复制图像 {image_file} 时出错: {e} (Error copying image {image_file}: {e})")
+            else:
+                print(f"警告: 在 {old_folder} 中没有找到图像目录 {image_dir} 用于episode {old_index} (Warning: No image directory {image_dir} found in {old_folder} for episode {old_index})")
+            frame_count = count_video_frames(target_video_path)
+            validation_results[validation_key]["video_frames"][image_dir] = frame_count
+            # 如果视频帧数与预期不符，更新预期帧数 (If video frame count doesn't match expected, update expected)
+            if frame_count != expected_frames:
+                print(f"Video frame count mismatch: {target_video_path}, expected {expected_frames}, found {frame_count}")
+                # Try to convert the images to video
+                try:
+                    # Create a video from images if we have some
+                    assert os.path.exists(target_image_dir) and os.path.isdir(target_image_dir)
+                    encode_video_frames(target_image_dir, target_video_path, fps, overwrite=True)
+                    print(f"Converted image directory {target_image_dir} to video {target_video_path}")
+                except Exception as e:
+                    print(f"转换图像目录 {target_image_dir} 为视频时出错: {e} (Error converting image directory {target_image_dir} to video: {e})")
+                finally:
+                    validation_results[validation_key]["video_frames"][image_dir] = count_video_frames(target_video_path)
+
+    
+    # 验证图像数量是否与预期帧数匹配 (Validate image counts against expected frame counts)
+    print("\n验证结果 (Validation Results):")
+    mismatches = 0
+    
+    for key, result in validation_results.items():
+        expected = result["expected_frames"]
+        img_counts = result["image_counts"]
+        video_frames = result["video_frames"]
+        old_idx = result["old_index"]
+        new_idx = result["new_index"]
+        
+        if not img_counts:  # 如果没有图像 (If no images were found)
+            print(f"Episode {old_idx} (新索引: {new_idx}): 没有找到图像 (No images found)")
+            continue
+        
+        print(f"\nEpisode {old_idx} (新索引: {new_idx}):")
+        print(f"  预期帧数: {expected} (Expected frames: {expected})")
+        
+        # 打印视频帧数 (Print video frame counts)
+        all_match = True
+        if video_frames:
+            print("  视频帧数 (Video frame counts):")
+            for vk, count in video_frames.items():
+                match = count == expected
+                all_match = all_match and match
+                if match:
+                    print(f"    {vk}: {count} frames (✓)")
+                else:
+                    print(f"    {vk}: {count} frames (✗) (expected {expected})")
+        
+        # 打印图像数量 (Print image counts)
+        
+        print("  图像数量 (Image counts):")
+        for img_dir, count in img_counts.items():
+            match = count == expected
+            all_match = all_match and match
+            if match:
+                print(f"    {img_dir}: {count} images (✓)")
+            else:
+                print(f"    {img_dir}: {count} images (✗) (expected {expected})")
+            
+        print(f"  总体: {'所有匹配 ✓' if all_match else '检测到不匹配 ✗'} (Overall: {'All match ✓' if all_match else 'Discrepancy detected ✗'})")
+        
+        if not all_match:
+            mismatches += 1
+    
+    print(f"\n共复制 {total_copied} 张图像，{mismatches} 个episode有帧数不匹配 (Copied {total_copied} images in total, {mismatches} episodes have frame count mismatches)")
+    
+    return validation_results
+
+
 def merge_datasets(
     source_folders, output_folder, validate_ts=False, tolerance_s=1e-4, max_dim=18, default_fps=20
 ):
@@ -910,6 +1161,7 @@ def merge_datasets(
     3. 填充向量维度使其一致 (Pads vector dimensions for consistency)
     4. 更新元数据文件 (Updates metadata files)
     5. 复制并处理数据和视频文件 (Copies and processes data and video files)
+    6. 复制并验证图像文件 (Copies and validates image files)
     """
     # Create output folder if it doesn't exist
     os.makedirs(output_folder, exist_ok=True)
@@ -1288,6 +1540,9 @@ def merge_datasets(
         folder_task_mapping=folder_task_mapping,
         chunks_size=chunks_size,
     )
+    
+    # Copy image files and verify image count matches video frame count
+    copy_images(source_folders, output_folder, episode_mapping)
 
     print(f"Merged {total_episodes} episodes with {total_frames} frames into {output_folder}")
 
