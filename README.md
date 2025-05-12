@@ -19,6 +19,7 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
 
 ## 🚀 What's New <a><img width="35" height="20" src="https://user-images.githubusercontent.com/12782558/212848161-5e783dd6-11e8-4fe0-bbba-39ffb77730be.png"></a>
 
+- **\[2025.05.12\]** We have supported Data Conversion from RoboMIND to LeRobot! 🔥🔥🔥
 - **\[2025.04.20\]** We add Dataset Version Converter for LeRobotv2.0 to LeRobotv2.1! 🔥🔥🔥
 - **\[2025.04.15\]** We add Dataset Merging Tool for merging multi-source lerobot datasets! 🔥🔥🔥
 - **\[2025.04.14\]** We have supported Data Conversion from AgiBotWorld to LeRobot! 🔥🔥🔥
@@ -31,7 +32,7 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
 
   - [x] [Open X-Embodiment to LeRobot](./openx2lerobot/README.md)
   - [x] [AgiBot-World to LeRobot](./agibot2lerobot/README.md)
-  - [ ] RoboMIND to LeRobot
+  - [x] [RoboMIND to LeRobot](./robomind2lerobot/README.md)
   - [ ] LeRobot to RLDS
 
 - ​**Version Conversion​**​:
