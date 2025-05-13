@@ -981,13 +981,17 @@ def copy_images(source_folders, output_folder, episode_mapping, default_fps=20, 
     print(f"Found video/image keys: {image_keys}")
     print("Starting to copy and validate images...")
     
+    episode_file_mapping = {}
     for old_folder, old_index, new_index in episode_mapping:
         # 从episodes.jsonl获取预期的帧数 (Get expected frame count from episodes.jsonl)
         episode_file = os.path.join(old_folder, "meta", "episodes.jsonl")
         expected_frames = 0
         if os.path.exists(episode_file):
-            episodes = load_jsonl(episode_file)
-            episode_data = next((ep for ep in episodes if ep["episode_index"] == old_index), None)
+            if episode_file not in episode_file_mapping:
+                episodes = load_jsonl(episode_file)
+                episodes = {ep["episode_index"]: ep for ep in episodes}
+                episode_file_mapping[episode_file] = episodes
+            episode_data = episode_file_mapping[episode_file].get(old_index, None)
             if episode_data:
                 expected_frames = episode_data["length"]
         
