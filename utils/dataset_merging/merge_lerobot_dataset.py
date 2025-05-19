@@ -1283,6 +1283,8 @@ def merge_datasets(
 
     # 从info.json获取chunks_size
     info_path = os.path.join(source_folders[0], "meta", "info.json")
+    # Check if all source folders have images directory
+    images_dir_exists = all(os.path.exists(os.path.join(folder, "images")) for folder in source_folders)
     chunks_size = 1000  # 默认值
     if os.path.exists(info_path):
         with open(info_path) as f:
@@ -1593,10 +1595,11 @@ def merge_datasets(
         json.dump(info, f, indent=4)
 
     # Validate before video copying
-    early_validation(
-        source_folders,
-        episode_mapping,
-    )
+    if images_dir_exists:
+        early_validation(
+            source_folders,
+            episode_mapping,
+        )
 
     # Copy video and data files
     copy_videos(source_folders, output_folder, episode_mapping)
