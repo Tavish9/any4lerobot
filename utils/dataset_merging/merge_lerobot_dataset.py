@@ -8,6 +8,7 @@ import traceback
 import cv2
 import numpy as np
 import pandas as pd
+from termcolor import colored
 
 from lerobot.common.datasets.video_utils import encode_video_frames
 
@@ -890,83 +891,108 @@ def pad_parquet_data(source_path, target_path, original_dim=14, target_dim=18):
     return new_df
 
 
-def count_video_frames(video_path):
+def count_video_frames_torchvision(video_path):
     """
-    计算视频文件中的帧数
-    (Count the number of frames in a video file)
+    Count the number of frames in a video file using torchvision
 
     Args:
-        video_path (str): 视频文件路径 (Path to the video file)
+        video_path (str):
 
     Returns:
-        int: 帧数 (Frame count)
+        Frame count (int):
     """
     try:
-        import cv2
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            print(f"无法打开视频: {video_path} (Cannot open video: {video_path})")
+        import torchvision
+
+        # Ensure torchvision version is recent enough for VideoReader and AV1 support
+        # (This is a general good practice, specific version checks might be needed
+        # depending on the exact AV1 library used by torchvision's backend)
+        # print(f"Torchvision version: {torchvision.__version__}")
+        # print(f"PyTorch version: {torch.__version__}")
+
+        # VideoReader requires the video path as a string
+        reader = torchvision.io.VideoReader(video_path, "video")
+        
+        # Attempt to get frame count from metadata
+        # Metadata structure can vary; "video" stream usually has "num_frames"
+        metadata = reader.get_metadata()
+        frame_count = 0
+
+        if "video" in metadata and "num_frames" in metadata["video"] and len(metadata["video"]["num_frames"]) > 0:
+            # num_frames is often a list, take the first element
+            frame_count = int(metadata["video"]["num_frames"][0])
+            if frame_count > 0:
+                # If metadata provides a positive frame count, we can often trust it.
+                # For some backends/formats, this might be the most reliable way.
+                return frame_count
+
+        # If metadata didn't provide a reliable frame count, or to be absolutely sure,
+        # we can iterate through the frames.
+        # This is more robust but potentially slower.
+        count_manually = 0
+        for _ in reader: # Iterating through the reader yields frames
+            count_manually += 1
+        
+        # If manual count is zero but metadata had a count, it might indicate an issue
+        # or an empty video. Prioritize manual count if it's > 0.
+        if count_manually > 0:
+            return count_manually
+        elif frame_count > 0 : # Fallback to metadata if manual count was 0 but metadata had a value
+            print(f"Warning: Manual count is 0, but metadata indicates {frame_count} frames. Video might be empty or there was a read issue. Returning metadata count.")
+            return frame_count
+        else:
+            # This case means both metadata (if available) and manual iteration yielded 0.
+            print(f"Video appears to have no frames: {video_path}")
             return 0
-        
-        # 获取视频总帧数 (Get total frame count)
-        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        
-        # 确保帧数是准确的，有时cv2.CAP_PROP_FRAME_COUNT不准确
-        # (Make sure frame count is accurate, sometimes cv2.CAP_PROP_FRAME_COUNT is inaccurate)
-        if frame_count <= 0:
-            # 手动计算帧数 (Manually count frames)
-            frame_count = 0
-            success = True
-            while success:
-                success, _ = cap.read()
-                if success:
-                    frame_count += 1
-        
-        cap.release()
-        return frame_count
+
     except ImportError:
-        print("警告: 未安装OpenCV，无法计算视频帧数 (Warning: OpenCV not installed, cannot count video frames)")
+        print("Warning: torchvision or its dependencies (like ffmpeg) not installed, cannot count video frames")
+        return 0
+    except RuntimeError as e:
+        # RuntimeError can be raised by VideoReader for various issues (e.g., file not found, corrupt file, unsupported codec by the backend)
+        if "No video stream found" in str(e):
+            print(f"Error: No video stream found in video file: {video_path}")
+        elif "Could not open" in str(e) or "Demuxing video" in str(e):
+            print(f"Error: Could not open or demux video file (possibly unsupported format or corrupted file): {video_path} - {e}")
+        else:
+            print(f"Runtime error counting video frames: {e}")
         return 0
     except Exception as e:
-        print(f"计算视频帧数时出错: {e} (Error counting video frames: {e})")
+        print(f"Error counting video frames: {e}")
         return 0
+    finally:
+        # VideoReader does not have an explicit close() or release() method.
+        # It's managed by its destructor when it goes out of scope.
+        pass
 
-def copy_images(source_folders, output_folder, episode_mapping, default_fps=20, fps=None):
+
+def early_validation(source_folders, episode_mapping, default_fps=20, fps=None):
     """
-    从源文件夹复制图像文件到输出文件夹，保持正确的索引和结构，并验证图像数量与视频帧数匹配
-    (Copy image files from source folders to output folder, maintaining correct indices and structure,
-    and verify that image count matches video frame count)
-
+    Validate and copy image files from source folders to output folder.
+    Performs validation first before any copying to ensure dataset consistency.
+    
     Args:
-        source_folders (list): 源数据集文件夹路径列表 (List of source dataset folder paths)
-        output_folder (str): 输出文件夹路径 (Output folder path)
-        episode_mapping (list): 包含(旧文件夹,旧索引,新索引)元组的列表
-                               (List of tuples containing (old_folder, old_index, new_index))
+        source_folders (list): List of source dataset folder paths
+        output_folder (str): Output folder path
+        episode_mapping (list): List of tuples containing (old_folder, old_index, new_index)
+        default_fps (int): Default frame rate to use if not specified
+        fps (int): Frame rate to use for video encoding
     
     Returns:
-        dict: 验证结果，包含每个episode的预期帧数和实际图像数量
-              (Validation results containing expected frame count and actual image count for each episode)
+        dict: Validation results containing expected frame count and actual image count for each episode
     """
     if fps is None:
         info_path = os.path.join(source_folders[0], "meta", "info.json")
         if os.path.exists(info_path):
             with open(info_path) as f:
                 info = json.load(f)
-                fps = info.get(
-                    "fps", default_fps
-                )  # 使用变量替代硬编码的20 (Use variable instead of hardcoded 20)
+                fps = info.get("fps", default_fps)
         else:
-            fps = default_fps  # 使用变量替代硬编码的20 (Use variable instead of hardcoded 20)
+            fps = default_fps
 
-    print(f"使用FPS={fps} (Using FPS={fps})")
-    # 创建输出图像目录 (Create output image directory)
-    os.makedirs(os.path.join(output_folder, "images"), exist_ok=True)
+    print(f"Using FPS={fps}")
     
-    # 跟踪验证结果 (Track validation results)
-    validation_results = {}
-    total_copied = 0
-    
-    # 获取视频路径模板和视频键 (Get video path template and video keys)
+    # Get video path template and video keys
     info_path = os.path.join(source_folders[0], "meta", "info.json")
     with open(info_path) as f:
         info = json.load(f)
@@ -979,11 +1005,15 @@ def copy_images(source_folders, output_folder, episode_mapping, default_fps=20, 
             image_keys.append(feature_name)
 
     print(f"Found video/image keys: {image_keys}")
-    print("Starting to copy and validate images...")
+    
+    # Validate first before copying anything
+    print("Starting validation of images and videos...")
+    validation_results = {}
+    validation_failed = False
     
     episode_file_mapping = {}
     for old_folder, old_index, new_index in episode_mapping:
-        # 从episodes.jsonl获取预期的帧数 (Get expected frame count from episodes.jsonl)
+        # Get expected frame count from episodes.jsonl
         episode_file = os.path.join(old_folder, "meta", "episodes.jsonl")
         expected_frames = 0
         if os.path.exists(episode_file):
@@ -992,155 +1022,185 @@ def copy_images(source_folders, output_folder, episode_mapping, default_fps=20, 
                 episodes = {ep["episode_index"]: ep for ep in episodes}
                 episode_file_mapping[episode_file] = episodes
             episode_data = episode_file_mapping[episode_file].get(old_index, None)
-            if episode_data:
+            if episode_data and "length" in episode_data:
                 expected_frames = episode_data["length"]
         
-        # 存储验证信息 (Store validation info)
         validation_key = f"{old_folder}_{old_index}"
-        if validation_key not in validation_results:
-            validation_results[validation_key] = {
-                "expected_frames": expected_frames,
-                "image_counts": {},
-                "video_frames": {},
-                "old_index": old_index,
-                "new_index": new_index
-            }
+        validation_results[validation_key] = {
+            "expected_frames": expected_frames,
+            "image_counts": {},
+            "video_frames": {},
+            "old_index": old_index,
+            "new_index": new_index,
+            "is_valid": True  # Default to valid
+        }
         
-        # 检查对应的视频文件，计算实际帧数 (Check corresponding video files, count actual frames)
+        # Check each image directory and video
+        episode_chunk = old_index // info["chunks_size"]
+        for image_dir in image_keys:
+            # Find the video file
+            source_video_path = os.path.join(
+                old_folder,
+                video_path_template.format(
+                    episode_chunk=episode_chunk, video_key=image_dir, episode_index=old_index
+                ),
+            )
+            source_image_dir = os.path.join(old_folder, "images", image_dir, f"episode_{old_index:06d}")
+            image_dir_exists = os.path.exists(source_image_dir)
+            video_file_exists = os.path.exists(source_video_path)
+            if not video_file_exists:
+                print(f"{colored('WARNING', 'yellow', attrs=['bold'])}: Video file not found for {image_dir}, episode {old_index} in {old_folder}")
+                if image_dir_exists:
+                    print("  Image directory exists, encoding video from images.")
+                    encode_video_frames(source_image_dir, source_video_path, fps, overwrite=True)
+                    print("  Encoded video frames successfully.")
+                else:
+                    print(f"{colored('ERROR', 'red', attrs=['bold'])}: No video or image directory found for {image_dir}, episode {old_index} in {old_folder}")
+                    validation_results[validation_key]["is_valid"] = False
+                    validation_failed = True
+                    continue
+            
+            # Count video frames
+            video_frame_count = count_video_frames_torchvision(source_video_path)
+            validation_results[validation_key]["video_frames"][image_dir] = video_frame_count
+            
+            # Check if image directory exists
+            
+            if image_dir_exists:
+                # Count image files
+                image_files = sorted([f for f in os.listdir(source_image_dir) if f.endswith('.png')])
+                images_count = len(image_files)
+                validation_results[validation_key]["image_counts"][image_dir] = images_count
+                
+                error_msg = f"expected_frames: {expected_frames}, images_count: {images_count}, video_frame_count: {video_frame_count}"
+                assert expected_frames > 0 and expected_frames == images_count, (
+                    f"{colored('ERROR', 'red', attrs=['bold'])}: Image count should match expected frames for {source_image_dir}.\n  {error_msg}"
+                )
+                assert expected_frames >= video_frame_count, (
+                    f"{colored('ERROR', 'red', attrs=['bold'])}: Video frame count should be less or equal than expected frames for {source_video_path}.\n  {error_msg}"
+                )
+                # Validate frame counts
+                if video_frame_count != expected_frames:
+                    print(f"{colored('WARNING', 'yellow', attrs=['bold'])}: Video frame count mismatch for {source_video_path}")
+                    print(f"  Expected: {expected_frames}, Found: {video_frame_count}")
+                    print(f"  Re-encoded video frames from {source_image_dir} to {source_video_path}")
+                    encode_video_frames(source_image_dir, source_video_path, fps, overwrite=True)
+                    print("  Re-encoded video frames successfully.")
+                    
+
+            else:
+                print(f"{colored('WARNING', 'yellow', attrs=['bold'])}: No image directory {image_dir} found for episode {old_index} in {old_folder}")
+                print("  You can ignore this if you are not using images and your video frame count is equal to expected frames.")
+                # If no images directory, the video frames must match expected frames
+                if expected_frames > 0 and video_frame_count != expected_frames:
+                    print(f"{colored('ERROR', 'red', attrs=['bold'])}: Video frame count mismatch for {source_video_path}")
+                    print(f"  Expected: {expected_frames}, Found: {video_frame_count}")
+                    
+                    validation_results[validation_key]["is_valid"] = False
+                    validation_failed = True
+    
+    # Print validation summary
+    print("\nValidation Results:")
+    valid_count = sum(1 for result in validation_results.values() if result["is_valid"])
+    print(f"{valid_count} of {len(validation_results)} episodes are valid")
+    
+    # If validation failed, stop the process
+    if validation_failed:
+        print(colored("Validation failed. Please fix the issues before continuing.", "red", attrs=["bold"]))
+        
+    
+def copy_images(source_folders, output_folder, episode_mapping, default_fps=20, fps=None):
+    """
+    Copy image files from source folders to output folder.
+    This function assumes validation has already been performed with early_validation().
+    
+    Args:
+        source_folders (list): List of source dataset folder paths
+        output_folder (str): Output folder path
+        episode_mapping (list): List of tuples containing (old_folder, old_index, new_index)
+        default_fps (int): Default frame rate to use if not specified
+        fps (int): Frame rate to use for video encoding
+        
+    Returns:
+        int: Number of images copied
+    """
+    if fps is None:
+        info_path = os.path.join(source_folders[0], "meta", "info.json")
+        if os.path.exists(info_path):
+            with open(info_path) as f:
+                info = json.load(f)
+                fps = info.get("fps", default_fps)
+        else:
+            fps = default_fps
+
+    # Get video path template and video keys
+    info_path = os.path.join(source_folders[0], "meta", "info.json")
+    with open(info_path) as f:
+        info = json.load(f)
+    
+    video_path_template = info["video_path"]
+    image_keys = []
+    
+    for feature_name, feature_info in info["features"].items():
+        if feature_info.get("dtype") == "video":
+            image_keys.append(feature_name)
+
+    # Create image directories in output folder
+    os.makedirs(os.path.join(output_folder, "images"), exist_ok=True)
+    
+    print(f"Starting to copy images for {len(image_keys)} video keys...")
+    total_copied = 0
+    skipped_episodes = 0
+    
+    # Copy images for each episode
+    for old_folder, old_index, new_index in episode_mapping:
         episode_chunk = old_index // info["chunks_size"]
         new_episode_chunk = new_index // info["chunks_size"]
+        
+        episode_copied = False
+        
         for image_dir in image_keys:
-            source_patterns = [
-                os.path.join(
-                    old_folder,
-                    video_path_template.format(
-                        episode_chunk=episode_chunk, video_key=image_dir, episode_index=old_index
-                    ),
-                ),
-                os.path.join(
-                    old_folder,
-                    video_path_template.format(episode_chunk=0, video_key=image_dir, episode_index=0),
-                ),
-                os.path.join(
-                    old_folder, f"videos/chunk-{episode_chunk:03d}/{image_dir}/episode_{old_index}.mp4"
-                ),
-                os.path.join(old_folder, f"videos/chunk-000/{image_dir}/episode_000000.mp4"),
-            ]
+            # Create target directory for this video key
+            os.makedirs(os.path.join(output_folder, "images", image_dir), exist_ok=True)
             
-            video_path = None
-            for pattern in source_patterns:
-                if os.path.exists(pattern):
-                    video_path = pattern
-                    break
-                    
-            assert video_path, f"视频文件未找到: {image_dir} (Video file not found: {image_dir})"
-            
-            # 此episode的源图像目录 (Source directory for this episode's images)
+            # Check if source image directory exists
             source_image_dir = os.path.join(old_folder, "images", image_dir, f"episode_{old_index:06d}")
             
-            # 如果此目录存在 (If this directory exists)
             if os.path.exists(source_image_dir):
-                # 创建目标目录 (Create target directory)
+                # Create target directory
                 target_image_dir = os.path.join(output_folder, "images", image_dir, f"episode_{new_index:06d}")
-                target_video_path = os.path.join(output_folder, video_path_template.format(
-                        episode_chunk=new_episode_chunk, video_key=image_dir, episode_index=new_index
-                    ),
-                )
                 os.makedirs(target_image_dir, exist_ok=True)
                 
-                # 计算帧数 (Count how many frames we have)
+                # Copy image files
                 image_files = sorted([f for f in os.listdir(source_image_dir) if f.endswith('.png')])
                 num_images = len(image_files)
                 
-                print(f"复制 {num_images} 张图像，从 {source_image_dir} 到 {target_image_dir} (Copying {num_images} images from {source_image_dir} to {target_image_dir})")
-                
-                # 存储图像数量 (Store image count)
-                validation_results[validation_key]["image_counts"][image_dir] = num_images
+                if num_images > 0:
+                    print(f"Copying {num_images} images from {source_image_dir} to {target_image_dir}")
                     
-                # 复制每张图像，保持帧号 (Copy each image, maintaining frame number)
-                for image_file in image_files:
-                    try:
-                        # 从文件名中提取帧号 (Extract frame number from filename)
-                        frame_part = image_file.split('_')[1] if '_' in image_file else image_file
-                        frame_num = int(frame_part.split('.')[0])
-                        
-                        # 复制文件 (Copy the file)
-                        dest_file = os.path.join(target_image_dir, f"frame_{frame_num:06d}.png")
-                        shutil.copy2(
-                            os.path.join(source_image_dir, image_file),
-                            dest_file
-                        )
-                        total_copied += 1
-                    except Exception as e:
-                        print(f"复制图像 {image_file} 时出错: {e} (Error copying image {image_file}: {e})")
-            else:
-                print(f"警告: 在 {old_folder} 中没有找到图像目录 {image_dir} 用于episode {old_index} (Warning: No image directory {image_dir} found in {old_folder} for episode {old_index})")
-            frame_count = count_video_frames(target_video_path)
-            validation_results[validation_key]["video_frames"][image_dir] = frame_count
-            # 如果视频帧数与预期不符，更新预期帧数 (If video frame count doesn't match expected, update expected)
-            if frame_count != expected_frames:
-                print(f"Video frame count mismatch: {target_video_path}, expected {expected_frames}, found {frame_count}")
-                # Try to convert the images to video
-                try:
-                    # Create a video from images if we have some
-                    assert os.path.exists(target_image_dir) and os.path.isdir(target_image_dir)
-                    encode_video_frames(target_image_dir, target_video_path, fps, overwrite=True)
-                    print(f"Converted image directory {target_image_dir} to video {target_video_path}")
-                except Exception as e:
-                    print(f"转换图像目录 {target_image_dir} 为视频时出错: {e} (Error converting image directory {target_image_dir} to video: {e})")
-                finally:
-                    validation_results[validation_key]["video_frames"][image_dir] = count_video_frames(target_video_path)
+                    for image_file in image_files:
+                        try:
+                            # Extract frame number from filename
+                            frame_part = image_file.split('_')[1] if '_' in image_file else image_file
+                            frame_num = int(frame_part.split('.')[0])
+                            
+                            # Copy the file with consistent naming
+                            dest_file = os.path.join(target_image_dir, f"frame_{frame_num:06d}.png")
+                            shutil.copy2(
+                                os.path.join(source_image_dir, image_file),
+                                dest_file
+                            )
+                            total_copied += 1
+                            episode_copied = True
+                        except Exception as e:
+                            print(f"Error copying image {image_file}: {e}")
 
+        if not episode_copied:
+            skipped_episodes += 1
     
-    # 验证图像数量是否与预期帧数匹配 (Validate image counts against expected frame counts)
-    print("\n验证结果 (Validation Results):")
-    mismatches = 0
-    
-    for key, result in validation_results.items():
-        expected = result["expected_frames"]
-        img_counts = result["image_counts"]
-        video_frames = result["video_frames"]
-        old_idx = result["old_index"]
-        new_idx = result["new_index"]
-        
-        if not img_counts:  # 如果没有图像 (If no images were found)
-            print(f"Episode {old_idx} (新索引: {new_idx}): 没有找到图像 (No images found)")
-            continue
-        
-        print(f"\nEpisode {old_idx} (新索引: {new_idx}):")
-        print(f"  预期帧数: {expected} (Expected frames: {expected})")
-        
-        # 打印视频帧数 (Print video frame counts)
-        all_match = True
-        if video_frames:
-            print("  视频帧数 (Video frame counts):")
-            for vk, count in video_frames.items():
-                match = count == expected
-                all_match = all_match and match
-                if match:
-                    print(f"    {vk}: {count} frames (✓)")
-                else:
-                    print(f"    {vk}: {count} frames (✗) (expected {expected})")
-        
-        # 打印图像数量 (Print image counts)
-        
-        print("  图像数量 (Image counts):")
-        for img_dir, count in img_counts.items():
-            match = count == expected
-            all_match = all_match and match
-            if match:
-                print(f"    {img_dir}: {count} images (✓)")
-            else:
-                print(f"    {img_dir}: {count} images (✗) (expected {expected})")
-            
-        print(f"  总体: {'所有匹配 ✓' if all_match else '检测到不匹配 ✗'} (Overall: {'All match ✓' if all_match else 'Discrepancy detected ✗'})")
-        
-        if not all_match:
-            mismatches += 1
-    
-    print(f"\n共复制 {total_copied} 张图像，{mismatches} 个episode有帧数不匹配 (Copied {total_copied} images in total, {mismatches} episodes have frame count mismatches)")
-    
-    return validation_results
+    print(f"\nCopied {total_copied} images for {len(episode_mapping) - skipped_episodes} episodes")
+    if skipped_episodes > 0:
+        print(f"{colored('WARNING', 'yellow', attrs=['bold'])}: Skipped {skipped_episodes} episodes with no images")
 
 
 def merge_datasets(
@@ -1532,6 +1592,12 @@ def merge_datasets(
     with open(os.path.join(output_folder, "meta", "info.json"), "w") as f:
         json.dump(info, f, indent=4)
 
+    # Validate before video copying
+    early_validation(
+        source_folders,
+        episode_mapping,
+    )
+
     # Copy video and data files
     copy_videos(source_folders, output_folder, episode_mapping)
     copy_data_files(
@@ -1544,9 +1610,12 @@ def merge_datasets(
         folder_task_mapping=folder_task_mapping,
         chunks_size=chunks_size,
     )
+
+    # Copy images and check with video frames
+    if args.copy_images:
+        print("Starting to copy images and validate video frame counts")
+        copy_images(source_folders, output_folder, episode_mapping)
     
-    # Copy image files and verify image count matches video frame count
-    copy_images(source_folders, output_folder, episode_mapping)
 
     print(f"Merged {total_episodes} episodes with {total_frames} frames into {output_folder}")
 
@@ -1560,6 +1629,7 @@ if __name__ == "__main__":
     parser.add_argument("--output", required=True, help="Output folder path")
     parser.add_argument("--max_dim", type=int, default=32, help="Maximum dimension (default: 32)")
     parser.add_argument("--fps", type=int, default=20, help="Your datasets FPS (default: 20)")
+    parser.add_argument("--copy_images", action="store_true", help="Whether copy images from source folders to output folder with validation. (default: False)",)
 
     # Parse arguments
     args = parser.parse_args()
