@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 from termcolor import colored
 
-from lerobot.common.datasets.video_utils import encode_video_frames
 
 def load_jsonl(file_path):
     """
@@ -1052,6 +1051,7 @@ def early_validation(source_folders, episode_mapping, default_fps=20, fps=None):
                 print(f"{colored('WARNING', 'yellow', attrs=['bold'])}: Video file not found for {image_dir}, episode {old_index} in {old_folder}")
                 if image_dir_exists:
                     print("  Image directory exists, encoding video from images.")
+                    from lerobot.common.datasets.video_utils import encode_video_frames
                     encode_video_frames(source_image_dir, source_video_path, fps, overwrite=True)
                     print("  Encoded video frames successfully.")
                 else:
