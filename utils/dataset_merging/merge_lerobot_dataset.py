@@ -1084,6 +1084,8 @@ def early_validation(source_folders, episode_mapping, default_fps=20, fps=None):
                     print(f"{colored('WARNING', 'yellow', attrs=['bold'])}: Video frame count mismatch for {source_video_path}")
                     print(f"  Expected: {expected_frames}, Found: {video_frame_count}")
                     print(f"  Re-encoded video frames from {source_image_dir} to {source_video_path}")
+                    
+                    from lerobot.common.datasets.video_utils import encode_video_frames
                     encode_video_frames(source_image_dir, source_video_path, fps, overwrite=True)
                     print("  Re-encoded video frames successfully.")
                     
