@@ -18,6 +18,7 @@ merge_lerobot_dataset是一个功能强大的Python脚本，专门用于合并�
 本脚本依赖于以下Python库：
 - numpy
 - pandas
+如果保存的是图像而非视频，则会额外使用到lerobot库
 
 安装依赖项的命令如下：
 ```bash
@@ -33,13 +34,14 @@ python dataset_merger.py --sources /path/to/dataset1 /path/to/dataset2 /path/to/
 ### （二）命令行参数
 - **--sources**：源数据集文件夹路径列表，至少需要指定一个源数据集路径。
 - **--output**：输出数据集文件夹路径，用于指定合并后数据集的存储位置。
-- **--max_dim**：向量的最大维度，默认值为32。
+- **--state_max_dim**：状态向量的最大维度，默认值为32。
+- **--action_max_dim**：动作向量的最大维度，默认值为32。
 - **--fps**：数据集的帧率，默认值为20。
 - **--copy_images**: 是否将图像从源文件夹复制且合并到输出文件夹。(default: `False`)
 
 ### （三）示例
 ```bash
-python dataset_merger.py --sources ./robot_dataset_1 ./robot_dataset_2 --output ./merged_dataset --max_dim 18 --fps 30
+python dataset_merger.py --sources ./robot_dataset_1 ./robot_dataset_2 --output ./merged_dataset --state_max_dim 32 --action_max_dim 18 --fps 30
 ```
 
 ## 五、数据集格式
@@ -85,4 +87,4 @@ dataset/
 2. **Q: 如何处理不同FPS的数据集？**
 **A**: 暂时只支持相同FPS的数据集合并。
 3. **Q: 能否只合并某些特定episode？**
-**A**: 当前版本会合并所有数据。如需更精细的控制，您可以先筛选数据集，然后再进行合并。
+**A**: 当前版本会合并所有数据。如需更精细的控制，您可以先筛选数据集，然后再进行合并。也可以全部合并，然后使用lerobot加载特定的episode。
