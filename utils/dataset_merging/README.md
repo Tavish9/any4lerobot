@@ -18,7 +18,6 @@ merge_lerobot_dataset是一个功能强大的Python脚本，专门用于合并�
 本脚本依赖于以下Python库：
 - numpy
 - pandas
-如果保存的是图像而非视频，则会额外使用到lerobot库
 
 安装依赖项的命令如下：
 ```bash
