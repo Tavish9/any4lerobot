@@ -184,7 +184,7 @@ Dataset Structure of `meta/info.json`:
 > ```
 
 > [!NOTE]
-> The conversion speed of this script is limited by the performance of the physical machine running it, including **CPU cores and memory**. We recommend using **2 CPU cores per task** for optimal performance. However, each task requires approximately 20 GiB of memory. To avoid running out of memory, you may need to increase the number of CPU cores per task depending on your system’s available memory.
+> The conversion speed of this script is limited by the performance of the physical machine running it, including **CPU cores and memory**. We recommend using **2 CPU cores per task** for optimal performance. However, each task requires approximately 10 GiB of memory. To avoid running out of memory, you may need to increase the number of CPU cores per task depending on your system’s available memory.
 
 ### Download source code:
 
@@ -210,7 +210,7 @@ python robomind_h5.py \
 #### For single node
 
 ```bash
-cd robomind2lerobot && bash convert.sh
+bash convert.sh
 ```
 
 #### For multi nodes
@@ -233,7 +233,7 @@ On either Node, check the ray cluster status, and start the script
 
 ```bash
 ray status
-cd robomind2lerobot && bash convert.sh
+bash convert.sh
 ```
 
 **Slurm-managed System**
@@ -293,7 +293,7 @@ done
 
 sleep 10
 
-cd robomind2lerobot && bash convert.sh
+bash convert.sh
 ```
 
 **Other Community Supported Cluster Managers**
