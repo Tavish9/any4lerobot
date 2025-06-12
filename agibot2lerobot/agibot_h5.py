@@ -25,7 +25,6 @@ from lerobot.common.datasets.utils import (
     write_info,
 )
 from lerobot.common.datasets.video_utils import get_safe_default_codec
-from lerobot.common.robot_devices.robots.utils import Robot
 from ray.runtime_env import RuntimeEnv
 
 
@@ -72,10 +71,9 @@ class AgiBotDataset(LeRobotDataset):
         cls,
         repo_id: str,
         fps: int,
+        features: dict,
         root: str | Path | None = None,
-        robot: Robot | None = None,
         robot_type: str | None = None,
-        features: dict | None = None,
         use_videos: bool = True,
         tolerance_s: float = 1e-4,
         image_writer_processes: int = 0,
@@ -87,10 +85,9 @@ class AgiBotDataset(LeRobotDataset):
         obj.meta = AgiBotDatasetMetadata.create(
             repo_id=repo_id,
             fps=fps,
-            root=root,
-            robot=robot,
             robot_type=robot_type,
             features=features,
+            root=root,
             use_videos=use_videos,
         )
         obj.repo_id = obj.meta.repo_id
@@ -114,7 +111,7 @@ class AgiBotDataset(LeRobotDataset):
         obj.video_backend = video_backend if video_backend is not None else get_safe_default_codec()
         return obj
 
-    def add_frame(self, frame: dict) -> None:
+    def add_frame(self, frame: dict, task: str, timestamp: float | None = None) -> None:
         """
         This function only adds the frame to the episode_buffer. Apart from images — which are written in a
         temporary directory — nothing is written to disk. To save those frames, the 'save_episode()' method
@@ -133,17 +130,14 @@ class AgiBotDataset(LeRobotDataset):
 
         # Automatically add frame_index and timestamp to episode buffer
         frame_index = self.episode_buffer["size"]
-        timestamp = frame.pop("timestamp") if "timestamp" in frame else frame_index / self.fps
+        if timestamp is None:
+            timestamp = frame_index / self.fps
         self.episode_buffer["frame_index"].append(frame_index)
         self.episode_buffer["timestamp"].append(timestamp)
+        self.episode_buffer["task"].append(task)
 
         # Add frame features to episode_buffer
         for key, value in frame.items():
-            if key == "task":
-                # Note: we associate the task in natural language to its task index during `save_episode`
-                self.episode_buffer["task"].append(frame["task"])
-                continue
-
             if key not in self.features:
                 raise ValueError(
                     f"An element of the frame is not in the features. '{key}' not in '{self.features.keys()}'."
@@ -246,7 +240,7 @@ def save_as_lerobot_dataset(agibot_world_config, task: tuple[Path, Path], num_th
     if not save_depth:
         features.pop("observation.images.head_depth")
 
-    dataset = AgiBotDataset.create(
+    dataset: AgiBotDataset = AgiBotDataset.create(
         repo_id=json_file.stem,
         root=local_dir,
         fps=30,
@@ -268,7 +262,6 @@ def save_as_lerobot_dataset(agibot_world_config, task: tuple[Path, Path], num_th
                 eid,
                 src_path=src_path,
                 task_id=task_id,
-                task_instruction=task_instruction,
                 save_depth=save_depth,
                 AgiBotWorld_CONFIG=agibot_world_config,
             )
@@ -278,7 +271,7 @@ def save_as_lerobot_dataset(agibot_world_config, task: tuple[Path, Path], num_th
                 continue
 
             for frame_data in frames:
-                dataset.add_frame(frame_data)
+                dataset.add_frame(frame_data, task_instruction)
             try:
                 dataset.save_episode(videos=videos, action_config=action_config)
             except Exception as e:
@@ -300,7 +293,6 @@ def save_as_lerobot_dataset(agibot_world_config, task: tuple[Path, Path], num_th
                         eid,
                         src_path=src_path,
                         task_id=task_id,
-                        task_instruction=task_instruction,
                         save_depth=save_depth,
                         AgiBotWorld_CONFIG=agibot_world_config,
                     )
@@ -313,7 +305,7 @@ def save_as_lerobot_dataset(agibot_world_config, task: tuple[Path, Path], num_th
                     continue
                 action_config = task_info[eid]["label_info"]["action_config"]
                 for frame_data in frames:
-                    dataset.add_frame(frame_data)
+                    dataset.add_frame(frame_data, task_instruction)
                 try:
                     dataset.save_episode(videos=videos, action_config=action_config)
                 except Exception as e:

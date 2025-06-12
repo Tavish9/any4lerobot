@@ -20,7 +20,7 @@ def load_depths(root_dir: str, camera_name: str):
 
 
 def load_local_dataset(
-    episode_id: int, src_path: str, task_id: int, task_instruction: str, save_depth: bool, AgiBotWorld_CONFIG: dict
+    episode_id: int, src_path: str, task_id: int, save_depth: bool, AgiBotWorld_CONFIG: dict
 ) -> tuple[list, dict]:
     """Load local dataset and return a dict with observations and actions"""
     ob_dir = Path(src_path) / f"observations/{task_id}/{episode_id}"
@@ -81,7 +81,6 @@ def load_local_dataset(
                 )
                 for key, value in action.items()
             },
-            "task": task_instruction,
         }
         for i in range(num_frames)
     ]

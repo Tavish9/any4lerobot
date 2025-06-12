@@ -174,7 +174,7 @@ python convert.py \
 #### For single node
 
 ```bash
-cd agibot2lerobot && bash convert.sh
+bash convert.sh
 ```
 
 #### For multi nodes
@@ -197,7 +197,7 @@ On either Node, check the ray cluster status, and start the script
 
 ```bash
 ray status
-cd agibot2lerobot && bash convert.sh
+bash convert.sh
 ```
 
 **Slurm-managed System**
@@ -257,7 +257,7 @@ done
 
 sleep 10
 
-cd agibot2lerobot && bash convert.sh
+bash convert.sh
 ```
 
 **Other Community Supported Cluster Managers**
