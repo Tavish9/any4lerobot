@@ -37,10 +37,8 @@ from pathlib import Path
 import numpy as np
 import tensorflow as tf
 import tensorflow_datasets as tfds
-from huggingface_hub import HfApi
 from lerobot.common.constants import HF_LEROBOT_HOME
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
-
 from oxe_utils.configs import OXE_DATASET_CONFIGS, ActionEncoding, StateEncoding
 from oxe_utils.transforms import OXE_STANDARDIZATION_TRANSFORMS
 
@@ -149,10 +147,10 @@ def save_as_lerobot_dataset(lerobot_dataset: LeRobotDataset, raw_dataset: tf.dat
                     **image_dict,
                     "observation.state": traj["proprio"][i],
                     "action": traj["action"][i],
-                    "task": traj["task"][0].decode(),
-                }
+                },
+                task=traj["task"][0].decode(),
             )
-        lerobot_dataset.save_episode(keep_images=kwargs.get("keep_images", False))
+        lerobot_dataset.save_episode()
 
 
 def create_lerobot_dataset(
@@ -209,7 +207,7 @@ def create_lerobot_dataset(
         repo_id=repo_id,
         robot_type=robot_type,
         root=local_dir,
-        fps=fps,
+        fps=int(fps),
         use_videos=use_videos,
         features=features,
         image_writer_threads=image_writer_threads,
@@ -286,11 +284,6 @@ def main():
         type=int,
         default=10,
         help="Number of threads per process of image writer for saving images.",
-    )
-    parser.add_argument(
-        "--keep-images",
-        action="store_true",
-        help="Whether to keep the cached images.",
     )
 
     args = parser.parse_args()

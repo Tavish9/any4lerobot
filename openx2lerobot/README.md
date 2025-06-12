@@ -1,5 +1,7 @@
 # OpenX to LeRobot 
 
+Open X-Embodiment assembles a dataset from 22 different robots collected through a collaboration between 21 institutions, demonstrating 527 skills (160266 tasks). (Copied from [docs](https://robotics-transformer-x.github.io/))
+
 ## 🚀 What's New in This Script
 
 In this dataset, we have made several key improvements:
@@ -69,18 +71,7 @@ Dataset Structure of `meta/info.json`:
 ## Get started
 
 > [!IMPORTANT]  
-> 1.Before running the following code, modify `save_episode()` function in lerobot.
-> ```python
-> def save_episode(self, episode_data: dict | None = None, keep_images: bool | None = False) -> None:
->     ...
->     # delete images
->     if not keep_images:
->         img_dir = self.root / "images"
->         if img_dir.is_dir():
->             shutil.rmtree(self.root / "images")
->     ...
-> ```
-> 2.for `bc_z` dataset, modify `encode_video_frames()` in `lerobot/common/datasets/video_utils.py`.
+> 1.for `bc_z` dataset, modify `encode_video_frames()` in `lerobot/common/datasets/video_utils.py`.
 > 
 > ```python
 > # add the following content to line 141:
@@ -99,7 +90,7 @@ Dataset Structure of `meta/info.json`:
     git clone https://github.com/Tavish9/any4lerobot.git
     ```
 
-2. Modify path in `openx2lerobot/convert.sh`:
+2. Modify path in `convert.sh`:
 
     ```bash
     python openx_rlds.py \
@@ -113,7 +104,7 @@ Dataset Structure of `meta/info.json`:
 3. Execute the script:
 
     ```bash
-    cd openx2lerobot && bash convert.sh
+    bash convert.sh
     ```
 
 ## Available OpenX_LeRobot Dataset
