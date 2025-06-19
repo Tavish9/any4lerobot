@@ -59,6 +59,7 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
 
 ### Model
 
+- [Hume](https://hume-vla.github.io): 🦾 A Dual-System VLA with System2 Thinking [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/hume-vla/hume">](https://github.com/hume-vla/hume)
 - [SmolVLA](https://huggingface.co/blog/smolvla): Efficient Vision-Language-Action Model trained on Lerobot Community Data [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/huggingface/lerobot">](https://github.com/huggingface/lerobot)
 - [SpatialVLA](https://spatialvla.github.io/): a spatial-enhanced vision-language-action model that is trained on 1.1 Million real robot episodes [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/SpatialVLA/SpatialVLA">](https://github.com/SpatialVLA/SpatialVLA)
 - [openpi](https://www.physicalintelligence.company/blog/pi0): the official implemenation of $π_0$: A Vision-Language-Action Flow Model for General Robot Control [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/Physical-Intelligence/openpi">](https://github.com/Physical-Intelligence/openpi)
