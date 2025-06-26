@@ -36,7 +36,7 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
   - [x] [AgiBot-World to LeRobot](./agibot2lerobot/README.md)
   - [x] [RoboMIND to LeRobot](./robomind2lerobot/README.md)
   - [x] [LeRobot to RLDS](./lerobot2rlds/README.md)
-  - [ ] LIBERO to LeRobot
+  - [x] [LIBERO to LeRobot](./libero2lerobot/README.md)
 
 - **Training**:
 
@@ -54,6 +54,21 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
   - [ ] LeRobotv2.1 to LeRobotv2.0
 
 - [**Want more features?**](https://github.com/Tavish9/any4lerobot/issues/new?template=feature-request.yml)
+
+
+The common file extensions for the lerobot format are as follows:
+
+- lerobot: .npz (typically in NumPy compressed format, used to store multiple arrays or structured data)
+
+The organized common dataset formats and their file extensions are as follows:
+
+- NPY: .npy (NumPy native format, used to store a single array or dictionary)
+- NPZ: .npz (NumPy compressed format, commonly used in lerobot, for storing multiple arrays or structured data)
+- TFDS: .tfrecord, .json, .txt, etc. (TensorFlow Datasets format)
+- RLDS: .rlds, .tfrecord, .json (Robotics Language-conditioned Dataset)
+- HDF5: .h5, .hdf5 (Hierarchical Data Format, supports large and complex structured data)
+- lerobot (LeRobotDataset): .parquet (state data is stored in an efficient columnar format, Parquet, which includes information such as robot observation states, actions, and timestamps)
+
 
 ## 📚 Awesome LeRobot
 
