@@ -56,10 +56,6 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
 - [**Want more features?**](https://github.com/Tavish9/any4lerobot/issues/new?template=feature-request.yml)
 
 
-The common file extensions for the lerobot format are as follows:
-
-- lerobot: .npz (typically in NumPy compressed format, used to store multiple arrays or structured data)
-
 The organized common dataset formats and their file extensions are as follows:
 
 - NPY: .npy (NumPy native format, used to store a single array or dictionary)

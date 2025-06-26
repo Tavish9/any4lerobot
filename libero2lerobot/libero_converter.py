@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Libero统一数据转换器
+LIBERO Unified Data Converter
 
-支持自动识别RLDS和HDF5格式，自动解析成LeRobotDataSet格式，支持多线程操作
+Supports automatic detection of RLDS and HDF5 formats, auto-parses to LeRobotDataSet format with multi-threading support
 """
 
 import argparse
@@ -28,36 +28,36 @@ try:
     HAS_TF = True
 except ImportError:
     HAS_TF = False
-    logging.warning("tensorflow_datasets未安装，RLDS支持将被禁用")
+    logging.warning("tensorflow_datasets not installed, RLDS support will be disabled")
 
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 from lerobot.common.constants import HF_LEROBOT_HOME
 
-# 设置日志
+# Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 class DatasetFormatDetector:
-    """数据集格式检测器"""
+    """Dataset format detector"""
     
     @staticmethod
     def detect_format(data_path: Union[str, Path]) -> str:
         """
-        自动检测数据集格式
+        Automatically detect dataset format
         
         Args:
-            data_path: 数据集路径
+            data_path: Dataset path
             
         Returns:
-            str: 'rlds' 或 'hdf5'
+            str: 'rlds' or 'hdf5'
         """
         data_path = Path(data_path)
         
-        # 检查HDF5格式：查找.hdf5或.h5文件
+        # Check HDF5 format: look for .hdf5 or .h5 files
         hdf5_files = list(data_path.rglob("*.hdf5")) + list(data_path.rglob("*.h5"))
         
-        # 检查RLDS格式：查找tfrecord文件或dataset_info.json
+        # Check RLDS format: look for tfrecord files or dataset_info.json
         rlds_indicators = (
             list(data_path.rglob("*.tfrecord*")) + 
             list(data_path.rglob("dataset_info.json")) +
@@ -65,34 +65,34 @@ class DatasetFormatDetector:
         )
         
         if hdf5_files and not rlds_indicators:
-            logger.info(f"检测到HDF5格式，找到{len(hdf5_files)}个HDF5文件")
+            logger.info(f"Detected HDF5 format, found {len(hdf5_files)} HDF5 files")
             return "hdf5"
         elif rlds_indicators and not hdf5_files:
-            logger.info(f"检测到RLDS格式，找到相关文件：{[f.name for f in rlds_indicators[:3]]}")
+            logger.info(f"Detected RLDS format, found related files: {[f.name for f in rlds_indicators[:3]]}")
             return "rlds"
         elif hdf5_files and rlds_indicators:
-            logger.warning("同时发现HDF5和RLDS文件，优先使用HDF5格式")
+            logger.warning("Found both HDF5 and RLDS files, prioritizing HDF5 format")
             return "hdf5"
         else:
-            raise ValueError(f"无法检测数据格式：{data_path}")
+            raise ValueError(f"Unable to detect data format: {data_path}")
 
 
 class HDF5Processor:
-    """HDF5数据处理器"""
+    """HDF5 data processor"""
     
     def __init__(self, image_size: Tuple[int, int] = (256, 256), use_videos: bool = False):
         """
-        初始化HDF5处理器
+        Initialize HDF5 processor
         
         Args:
-            image_size: 图像尺寸 (height, width) - 匹配numpy数组格式
-            use_videos: 是否使用视频格式
+            image_size: Image size (height, width) - matches numpy array format
+            use_videos: Whether to use video format
         """
         self.image_size = image_size  # (height, width)
         self.use_videos = use_videos
     
     def get_default_features(self, use_videos: bool = True) -> Dict[str, Dict[str, Any]]:
-        """获取Libero数据集的默认特征配置"""
+        """Get default feature configuration for LIBERO dataset"""
         image_dtype = "video" if use_videos else "image"
         
         return {
@@ -120,68 +120,68 @@ class HDF5Processor:
     
     def process_episode(self, episode_path: Path, dataset: LeRobotDataset, task_name: str) -> bool:
         """
-        处理单个episode数据
+        Process single episode data
         
         Args:
-            episode_path: episode文件路径
-            dataset: LeRobot数据集
-            task_name: 任务名称
+            episode_path: Episode file path
+            dataset: LeRobot dataset
+            task_name: Task name
             
         Returns:
-            bool: 处理是否成功
+            bool: Whether processing was successful
         """
         try:
             with h5py.File(episode_path, "r") as file:
-                logger.debug(f"HDF5文件键: {list(file.keys())}")
+                logger.debug(f"HDF5 file keys: {list(file.keys())}")
                 
-                # 检测HDF5文件格式，支持多种Libero格式
+                # Detect HDF5 file format, support multiple LIBERO formats
                 if "data" in file:
-                    # 新的Libero格式：data/demo_N/...
+                    # New LIBERO format: data/demo_N/...
                     return self._process_libero_demo_format(file, dataset, task_name)
                 else:
-                    logger.warning(f"未识别的HDF5格式: {episode_path}")
+                    logger.warning(f"Unrecognized HDF5 format: {episode_path}")
                     return False
 
         except (FileNotFoundError, OSError, KeyError) as e:
-            logger.error(f"跳过 {episode_path}: {str(e)}")
+            logger.error(f"Skipping {episode_path}: {str(e)}")
             return False
             
 
     def _process_libero_demo_format(self, file: h5py.File, dataset: LeRobotDataset, task_name: str) -> bool:
-        """处理新的Libero demo格式：data/demo_N/..."""
+        """Process new LIBERO demo format: data/demo_N/..."""
         data_group = file["data"]
         
-        # 获取所有demo
+        # Get all demos
         demo_keys = [k for k in data_group.keys() if k.startswith("demo_")]
-        demo_keys.sort(key=lambda x: int(x.split("_")[1]))  # 按数字排序
+        demo_keys.sort(key=lambda x: int(x.split("_")[1]))  # Sort by number
         
         for demo_key in demo_keys:
             demo_group = data_group[demo_key]
-            logger.info(f"处理 {demo_key}")
+            logger.info(f"Processing {demo_key}")
             
-            # 读取动作数据
+            # Read action data
             actions = np.array(demo_group["actions"])
             
-            # 读取观察数据
+            # Read observation data
             obs_group = demo_group["obs"]
             
-            # 读取关节状态 - 作为observation.state
+            # Read joint states - as observation.state
             joint_states = np.array(obs_group["joint_states"])
             
-            # 读取图像数据
-            agentview_rgb = np.array(obs_group["agentview_rgb"])  # 前视图像
-            eye_in_hand_rgb = np.array(obs_group["eye_in_hand_rgb"])  # 腕部图像
+            # Read image data
+            agentview_rgb = np.array(obs_group["agentview_rgb"])  # Front camera
+            eye_in_hand_rgb = np.array(obs_group["eye_in_hand_rgb"])  # Wrist camera
             
-            # 确保所有数组长度一致
+            # Ensure all arrays have consistent length
             num_frames = min(len(actions), len(joint_states), len(agentview_rgb), len(eye_in_hand_rgb))
             
-            # 处理每一帧
-            for i in tqdm(range(num_frames), desc=f"处理 {demo_key}", leave=False):
-                # 处理图像：调整大小到目标尺寸
+            # Process each frame
+            for i in tqdm(range(num_frames), desc=f"Processing {demo_key}", leave=False):
+                # Process images: resize to target dimensions
                 front_img = cv2.resize(agentview_rgb[i], (self.image_size[1], self.image_size[0]))
                 wrist_img = cv2.resize(eye_in_hand_rgb[i], (self.image_size[1], self.image_size[0]))
                 
-                # 准备帧数据 - 参考RLDS格式
+                # Prepare frame data - reference RLDS format
                 frame_data = {
                     "task": task_name,
                     "action": actions[i].astype(np.float32),
@@ -190,50 +190,50 @@ class HDF5Processor:
                     "observation.images.wrist": wrist_img,
                 }
                 
-                # 添加帧到数据集
+                # Add frame to dataset
                 dataset.add_frame(frame_data)
             
-            # 每个demo保存为一个episode
+            # Save each demo as one episode
             dataset.save_episode()
         
         return True
 
     def _extract_libero_demo_frames(self, file: h5py.File, task_name: str) -> List[List[Dict]]:
-        """提取Libero demo格式的帧数据（用于多线程处理）- 返回按demo分组的数据"""
+        """Extract LIBERO demo format frame data (for multi-threading) - returns data grouped by demo"""
         demos_frames = []
         data_group = file["data"]
         
-        # 获取所有demo
+        # Get all demos
         demo_keys = [k for k in data_group.keys() if k.startswith("demo_")]
-        demo_keys.sort(key=lambda x: int(x.split("_")[1]))  # 按数字排序
+        demo_keys.sort(key=lambda x: int(x.split("_")[1]))  # Sort by number
         
         for demo_key in demo_keys:
             demo_frames = []
             demo_group = data_group[demo_key]
             
-            # 读取动作数据
+            # Read action data
             actions = np.array(demo_group["actions"])
             
-            # 读取观察数据
+            # Read observation data
             obs_group = demo_group["obs"]
             
-            # 读取关节状态 - 作为observation.state
+            # Read joint states - as observation.state
             joint_states = np.array(obs_group["joint_states"])
             
-            # 读取图像数据
-            agentview_rgb = np.array(obs_group["agentview_rgb"])  # 前视图像
-            eye_in_hand_rgb = np.array(obs_group["eye_in_hand_rgb"])  # 腕部图像
+            # Read image data
+            agentview_rgb = np.array(obs_group["agentview_rgb"])  # Front camera
+            eye_in_hand_rgb = np.array(obs_group["eye_in_hand_rgb"])  # Wrist camera
             
-            # 确保所有数组长度一致
+            # Ensure all arrays have consistent length
             num_frames = min(len(actions), len(joint_states), len(agentview_rgb), len(eye_in_hand_rgb))
             
-            # 处理每一帧
+            # Process each frame
             for i in range(num_frames):
-                # 处理图像：调整大小到目标尺寸
+                # Process images: resize to target dimensions
                 front_img = cv2.resize(agentview_rgb[i], (self.image_size[1], self.image_size[0]))
                 wrist_img = cv2.resize(eye_in_hand_rgb[i], (self.image_size[1], self.image_size[0]))
                 
-                # 准备帧数据 - 参考RLDS格式
+                # Prepare frame data - reference RLDS format
                 frame_data = {
                     "task": task_name,
                     "action": actions[i].astype(np.float32),
@@ -248,24 +248,24 @@ class HDF5Processor:
         return demos_frames
 
     def _extract_direct_episode_frames(self, file: h5py.File, task_name: str) -> List[List[Dict]]:
-        """提取直接episode格式的帧数据（兜底方案，用于多线程处理）- 返回按episode分组的数据"""
-        # 兜底方案：将整个文件作为一个episode
+        """Extract direct episode format frame data (fallback option for multi-threading) - returns data grouped by episode"""
+        # Fallback: treat entire file as one episode
         episode_frames = []
         
-        # 尝试找到可能的状态数据
+        # Try to find possible state data
         state_keys = ["joint_states", "states", "robot_states", "state"]
         state_data = None
         
         for key in state_keys:
             if key in file:
                 state_data = np.array(file[key])
-                logger.info(f"找到状态数据: {key}, shape: {state_data.shape}")
+                logger.info(f"Found state data: {key}, shape: {state_data.shape}")
                 break
         
         if state_data is None:
-            raise KeyError("未找到任何状态数据")
+            raise KeyError("No state data found")
         
-        # 尝试找到动作数据
+        # Try to find action data
         action_keys = ["actions", "action"]
         action_data = None
         
@@ -275,10 +275,10 @@ class HDF5Processor:
                 break
         
         if action_data is None:
-            logger.warning("未找到动作数据，使用状态数据作为动作")
+            logger.warning("No action data found, using state data as actions")
             action_data = state_data
         
-        # 尝试找到图像数据
+        # Try to find image data
         image_keys = ["agentview_rgb", "images", "rgb"]
         image_data = None
         
@@ -288,18 +288,18 @@ class HDF5Processor:
                 break
         
         if image_data is None:
-            logger.warning("未找到图像数据，将创建空图像")
+            logger.warning("No image data found, will create empty images")
             image_data = np.zeros((len(state_data), *self.image_size, 3), dtype=np.uint8)
         
-        # 确保所有数组长度一致
+        # Ensure all arrays have consistent length
         num_frames = min(len(state_data), len(action_data), len(image_data))
         
-        # 处理每一帧
+        # Process each frame
         for i in range(num_frames):
-            # 处理图像
-            if image_data.ndim == 4:  # 有时间维度
+            # Process images
+            if image_data.ndim == 4:  # Time dimension
                 img = cv2.resize(image_data[i], (self.image_size[1], self.image_size[0]))
-            else:  # 没有时间维度，使用第一张图
+            else:  # No time dimension, use first image
                 img = cv2.resize(image_data[0] if len(image_data) > 0 else np.zeros((*self.image_size, 3), dtype=np.uint8), (self.image_size[1], self.image_size[0]))
             
             frame_data = {
@@ -307,25 +307,25 @@ class HDF5Processor:
                 "action": action_data[i].astype(np.float32),
                 "observation.state": state_data[i].astype(np.float32),
                 "observation.images.front": img,
-                "observation.images.wrist": img,  # 使用相同图像作为腕部视图
+                "observation.images.wrist": img,  # Use same image as wrist view
             }
             episode_frames.append(frame_data)
         
-        return [episode_frames]  # 返回单个episode的列表
+        return [episode_frames]  # Return list of single episode
 
 
 class RLDSProcessor:
-    """RLDS数据处理器"""
+    """RLDS data processor"""
     
     def __init__(self):
         if not HAS_TF:
-            raise ImportError("tensorflow_datasets是RLDS处理所必需的，请运行: pip install tensorflow tensorflow_datasets")
-        # 添加与HDF5Processor兼容的属性
+            raise ImportError("tensorflow_datasets is RLDS processing required, please run: pip install tensorflow tensorflow_datasets")
+        # Add compatible attributes with HDF5Processor
         self.image_size = (256, 256)
         self.use_videos = False
     
     def get_default_features(self, use_videos: bool = True) -> Dict[str, Dict[str, Any]]:
-        """获取Libero数据集的默认特征配置"""
+        """Get default feature configuration for LIBERO dataset"""
         image_dtype = "video" if use_videos else "image"
         
         return {
@@ -352,8 +352,8 @@ class RLDSProcessor:
         }
     
     def process_dataset(self, dataset: LeRobotDataset, data_source: Union[str, Path]):
-        """处理RLDS数据集"""
-        # Libero数据集名称列表。根据自己需求修改
+        """Process RLDS dataset"""
+        # List of LIBERO dataset names. Modify according to your needs
         raw_dataset_names = [
             "libero_10_no_noops",
             "libero_goal_no_noops", 
@@ -364,10 +364,10 @@ class RLDSProcessor:
         episode_idx = 0
         
         for raw_dataset_name in raw_dataset_names:
-            logger.info(f"处理RLDS数据集: {raw_dataset_name}")
+            logger.info(f"Processing RLDS dataset: {raw_dataset_name}")
             
             try:
-                # 加载RLDS数据集
+                # Load RLDS dataset
                 raw_dataset = tfds.load(
                     raw_dataset_name, 
                     data_dir=data_source, 
@@ -376,16 +376,16 @@ class RLDSProcessor:
                 )
                 
                 for episode in raw_dataset:
-                    logger.info(f"处理episode {episode_idx + 1}")
+                    logger.info(f"Processing episode {episode_idx + 1}")
                     
-                    # 获取任务描述
+                    # Get task description
                     steps_list = list(episode["steps"].as_numpy_iterator())
                     task_str = f"episode_{episode_idx}"
                     
                     if steps_list and "language_instruction" in steps_list[0]:
                         task_str = steps_list[0]["language_instruction"].decode()
                     
-                    # 处理episode中的每个step
+                    # Process each step in episode
                     for step_idx, step in enumerate(steps_list):
                         frame_data = {
                             "observation.images.front": step["observation"]["image"],
@@ -400,19 +400,19 @@ class RLDSProcessor:
                     episode_idx += 1
                     
             except Exception as e:
-                logger.warning(f"处理数据集 {raw_dataset_name} 时出错: {e}")
+                logger.warning(f"Error processing dataset {raw_dataset_name}: {e}")
                 continue
 
 
 class UnifiedConverter:
-    """统一转换器类"""
+    """Unified converter class"""
     
     def __init__(self, num_workers: int = 4):
         """
-        初始化统一转换器
+        Initialize unified converter
         
         Args:
-            num_workers: 并行处理的工作线程数
+            num_workers: Number of parallel processing worker threads
         """
         self.num_workers = num_workers
         self.detector = DatasetFormatDetector()
@@ -435,42 +435,41 @@ class UnifiedConverter:
         **kwargs
     ) -> LeRobotDataset:
         """
-        统一转换接口
+        Unified conversion interface
         
         Args:
-            data_dir: 数据目录路径
-            repo_id: 数据集仓库ID
-            output_dir: 输出目录
-            push_to_hub: 是否推送到Hub
-            use_videos: 是否使用视频格式
-            robot_type: 机器人类型
-            fps: 帧率
-            task_name: 任务名称（HDF5格式使用）
-            hub_config: Hub配置
-            clean_existing: 是否清理现有数据集
-            image_writer_threads: 图像写入线程数
-            image_writer_processes: 图像写入进程数
-            run_compute_stats: 是否计算统计信息
+            data_dir: Data directory path
+            repo_id: Dataset repository ID
+            output_dir: Output directory
+            push_to_hub: Whether to push to Hub
+            use_videos: Whether to use video format
+            robot_type: Robot type
+            fps: Frame rate
+            task_name: Task name (used for HDF5 format)
+            hub_config: Hub configuration
+            clean_existing: Whether to clean existing dataset
+            image_writer_threads: Number of image writing threads
+            image_writer_processes: Number of image writing processes
+            run_compute_stats: Whether to compute statistics
             
         Returns:
-            LeRobotDataset: 转换后的数据集
+            LeRobotDataset: Converted dataset
         """
         data_path = Path(data_dir)
         
-        # 自动检测格式
+        # Automatically detect format
         format_type = self.detector.detect_format(data_path)
-        logger.info(f"检测到数据格式: {format_type}")
+        logger.info(f"Detected data format: {format_type}")
         
-        # 根据格式选择处理器和特征
+        # Select processor and features based on format
         if format_type == "hdf5":
             processor = HDF5Processor()
             features = processor.get_default_features(use_videos)
-
         else:  # rlds
             processor = RLDSProcessor()
             features = processor.get_default_features(use_videos)
         
-        # 设置输出路径
+        # Set output path
         if output_dir is None:
             lerobot_root = HF_LEROBOT_HOME
         else:
@@ -479,15 +478,15 @@ class UnifiedConverter:
         os.environ["LEROBOT_HOME"] = str(lerobot_root)
         lerobot_dataset_dir = lerobot_root / repo_id
         
-        # 清理现有数据集
+        # Clean existing dataset
         if clean_existing and lerobot_dataset_dir.exists():
-            logger.info(f"清理现有数据集: {lerobot_dataset_dir}")
+            logger.info(f"Cleaning existing dataset: {lerobot_dataset_dir}")
             shutil.rmtree(lerobot_dataset_dir)
         
         lerobot_root.mkdir(parents=True, exist_ok=True)
         
-        # 创建LeRobot数据集
-        logger.info(f"创建LeRobot数据集: {repo_id}")
+        # Create LeRobot dataset
+        logger.info(f"Creating LeRobot dataset: {repo_id}")
         dataset = LeRobotDataset.create(
             repo_id=repo_id,
             robot_type=robot_type,
@@ -498,33 +497,33 @@ class UnifiedConverter:
             image_writer_threads=image_writer_threads,
         )
         
-        # 处理数据
+        # Process data
         if format_type == "hdf5":
             self._process_hdf5_data(processor, dataset, data_path, task_name)
         else:  # rlds
             processor.process_dataset(dataset, data_path)
         
-        # 整合数据集
-        logger.info("整合数据集...")
+        # Consolidate dataset
+        logger.info("Consolidating dataset...")
         dataset.consolidate(run_compute_stats=run_compute_stats)
         
-        # 推送到Hub
+        # Push to Hub
         if push_to_hub:
             if hub_config is None:
                 hub_config = self._get_default_hub_config()
-            logger.info("推送到Hugging Face Hub...")
+            logger.info("Pushing to Hugging Face Hub...")
             dataset.push_to_hub(**hub_config)
         
-        logger.info("✅ 数据集转换完成!")
+        logger.info("✅ Dataset conversion completed!")
         return dataset
     
     def _process_hdf5_data(self, processor: Union[HDF5Processor, RLDSProcessor], dataset: LeRobotDataset, data_path: Path, task_name: str):
-        """使用多线程处理HDF5数据"""
-        # 确保是HDF5Processor
+        """Use multi-threading to process HDF5 data"""
+        # Ensure HDF5Processor
         if not isinstance(processor, HDF5Processor):
-            raise TypeError("processor必须是HDF5Processor实例")
+            raise TypeError("processor must be HDF5Processor instance")
             
-        # 查找所有episode
+        # Find all episodes
         episodes = []
         for ep_dir in data_path.iterdir():
             if ep_dir.is_dir():
@@ -533,63 +532,63 @@ class UnifiedConverter:
                     episodes.append(ep_path)
         
         if not episodes:
-            # 直接查找HDF5文件
+            # Directly find HDF5 files
             episodes = list(data_path.rglob("*.hdf5")) + list(data_path.rglob("*.h5"))
         
-        logger.info(f"找到 {len(episodes)} 个episode文件")
+        logger.info(f"Found {len(episodes)} episode files")
         
         if self.num_workers == 1:
-            # 单线程处理
-            for ep_path in tqdm(episodes, desc="处理Episodes"):
+            # Single-thread processing
+            for ep_path in tqdm(episodes, desc="Processing Episodes"):
                 processor.process_episode(ep_path, dataset, task_name)
-                logger.info(f"处理完成: {ep_path.name}")
+                logger.info(f"Processing completed: {ep_path.name}")
         else:
-            # 多线程处理
+            # Multi-thread processing
             self._process_episodes_parallel(processor, dataset, episodes, task_name)
     
     def _process_episodes_parallel(self, processor: HDF5Processor, dataset: LeRobotDataset, episodes: List[Path], task_name: str):
-        """并行处理episodes，使用HDF5Processor的统一方法"""
-        # 创建处理函数
+        """Parallel processing of episodes, using unified method of HDF5Processor"""
+        # Create processing function
         def process_single_episode(ep_path: Path) -> Tuple[Path, bool, List[List[Dict]]]:
-            """处理单个episode并返回帧数据"""
+            """Process single episode and return frame data"""
             demos_frames = []
             try:
                 with h5py.File(ep_path, "r") as file:
-                    logger.debug(f"多线程处理HDF5文件键: {list(file.keys())}")
+                    logger.debug(f"Multi-thread processing HDF5 file keys: {list(file.keys())}")
                     
-                    # 使用与HDF5Processor相同的检测和处理逻辑
+                    # Use same detection and processing logic as HDF5Processor
                     if "data" in file:
-                        # 新的Libero格式：data/demo_N/...
+                        # New LIBERO format: data/demo_N/...
                         demos_frames = processor._extract_libero_demo_frames(file, task_name)
                     else:
-                        # 尝试其他格式的兜底处理
+                        # Try fallback processing for other formats
                         demos_frames = processor._extract_direct_episode_frames(file, task_name)
                     
                 return ep_path, True, demos_frames
             except Exception as e:
-                logger.error(f"处理 {ep_path} 失败: {e}")
+                logger.error(f"Processing {ep_path} failed: {e}")
                 return ep_path, False, []
         
-        # 并行处理
-        logger.info(f"使用 {self.num_workers} 个工作线程并行处理episodes")
+        # Parallel processing
+        logger.info(f"Using {self.num_workers} worker threads to process episodes")
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.num_workers) as executor:
-            # 提交所有任务
+            # Submit all tasks
             future_to_episode = {executor.submit(process_single_episode, ep): ep for ep in episodes}
             
-            # 收集结果
-            for future in tqdm(concurrent.futures.as_completed(future_to_episode), total=len(episodes), desc="处理Episodes"):
+            # Collect results
+            for future in tqdm(concurrent.futures.as_completed(future_to_episode), total=len(episodes), desc="Processing Episodes"):
                 ep_path, success, demos_frames_list = future.result()
                 
                 if success and demos_frames_list:
-                    # 每个demo作为独立的episode保存
+                    # Each demo saved as independent episode
                     for demo_idx, demo_frames in enumerate(demos_frames_list):
                         for frame_data in demo_frames:
                             dataset.add_frame(frame_data)
                         dataset.save_episode()
-                        logger.info(f"保存episode: {ep_path.name}_demo_{demo_idx}")
+                        logger.info(f"Saved episode: {ep_path.name}_demo_{demo_idx}")
     
     def _get_default_hub_config(self) -> Dict[str, Any]:
-        """获取默认Hub配置"""
+        """Get default Hub configuration"""
         return {
             "tags": ["libero", "robotics", "lerobot", "unified"],
             "private": False,
@@ -599,13 +598,13 @@ class UnifiedConverter:
 
 
 def main():
-    """主函数"""
+    """Main function"""
     parser = argparse.ArgumentParser(
-        description="Libero统一数据转换器 - 支持RLDS和HDF5格式自动识别",
+        description="Libero unified data converter - Supports automatic detection of RLDS and HDF5 formats",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-示例用法:
-  # 自动检测格式并转换
+Example usage:
+  # Automatically detect format and convert
   python unified_converter.py \\
     --data-dir /path/to/data \\
     --repo-id username/dataset_name \\
@@ -613,7 +612,7 @@ def main():
     --use-videos \\
     --num-workers 4
 
-  # HDF5格式，指定配置文件
+  # HDF5 format, specify config file
   python unified_converter.py \\
     --data-dir /path/to/hdf5/data \\
     --repo-id username/hdf5_dataset \\
@@ -623,63 +622,63 @@ def main():
         """
     )
     
-    # 必需参数
-    parser.add_argument("--data-dir", type=str, required=True, help="数据目录路径")
-    parser.add_argument("--repo-id", type=str, required=True, help="数据集仓库ID")
+    # Required arguments
+    parser.add_argument("--data-dir", type=str, required=True, help="Data directory path")
+    parser.add_argument("--repo-id", type=str, required=True, help="Dataset repository ID")
     
-    # 输出配置
-    parser.add_argument("--output-dir", type=str, default=None, help="输出目录")
-    parser.add_argument("--push-to-hub", action="store_true", help="推送到Hub")
-    parser.add_argument("--private", action="store_true", help="创建私有数据集")
+    # Output configuration
+    parser.add_argument("--output-dir", type=str, default=None, help="Output directory")
+    parser.add_argument("--push-to-hub", action="store_true", help="Push to Hub")
+    parser.add_argument("--private", action="store_true", help="Create private dataset")
     
-    # 数据格式
-    parser.add_argument("--use-videos", action="store_true", default=True, help="使用视频格式")
-    parser.add_argument("--robot-type", type=str, default="panda", help="机器人类型")
-    parser.add_argument("--fps", type=int, default=20, help="帧率")
+    # Data format
+    parser.add_argument("--use-videos", action="store_true", default=True, help="Use video format")
+    parser.add_argument("--robot-type", type=str, default="panda", help="Robot type")
+    parser.add_argument("--fps", type=int, default=20, help="Frame rate")
     
-    # HDF5特定参数
-    parser.add_argument("--task-name", type=str, default="default_task", help="任务名称")
+    # HDF5 specific parameters
+    parser.add_argument("--task-name", type=str, default="default_task", help="Task name")
     
-    # 性能参数
-    parser.add_argument("--num-workers", type=int, default=2, help="并行工作线程数")
-    parser.add_argument("--image-writer-processes", type=int, default=5, help="图像写入进程数")
-    parser.add_argument("--image-writer-threads", type=int, default=1, help="图像写入线程数")
+    # Performance parameters
+    parser.add_argument("--num-workers", type=int, default=2, help="Number of parallel worker threads")
+    parser.add_argument("--image-writer-processes", type=int, default=5, help="Number of image writing processes")
+    parser.add_argument("--image-writer-threads", type=int, default=1, help="Number of image writing threads")
     
-    # Hub配置
-    parser.add_argument("--license", type=str, default="apache-2.0", help="数据集许可证")
-    parser.add_argument("--tags", nargs="+", default=["libero", "robotics", "lerobot"], help="数据集标签")
+    # Hub configuration
+    parser.add_argument("--license", type=str, default="apache-2.0", help="Dataset license")
+    parser.add_argument("--tags", nargs="+", default=["libero", "robotics", "lerobot"], help="Dataset tags")
     
-    # 调试选项
-    parser.add_argument("--verbose", action="store_true", help="详细日志")
-    parser.add_argument("--dry-run", action="store_true", help="试运行模式")
+    # Debug options
+    parser.add_argument("--verbose", action="store_true", help="Detailed logging")
+    parser.add_argument("--dry-run", action="store_true", help="Dry run mode")
     
     args = parser.parse_args()
     
-    # 设置日志级别
+    # Set log level
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
     
-    # 验证参数
+    # Validate parameters
     if not Path(args.data_dir).exists():
-        logger.error(f"数据目录不存在: {args.data_dir}")
+        logger.error(f"Data directory does not exist: {args.data_dir}")
         return 1
     
     if "/" not in args.repo_id:
-        logger.error(f"repo_id格式错误: {args.repo_id}")
+        logger.error(f"repo_id format error: {args.repo_id}")
         return 1
     
-    logger.info("📋 转换配置:")
-    logger.info(f"  数据源: {args.data_dir}")
-    logger.info(f"  仓库ID: {args.repo_id}")
-    logger.info(f"  并行线程数: {args.num_workers}")
-    logger.info(f"  使用视频: {args.use_videos}")
-    logger.info(f"  推送到Hub: {args.push_to_hub}")
+    logger.info("📋 Conversion configuration:")
+    logger.info(f"   Data source: {args.data_dir}")
+    logger.info(f"   Repository ID: {args.repo_id}")
+    logger.info(f"   Number of parallel threads: {args.num_workers}")
+    logger.info(f"   Use videos: {args.use_videos}")
+    logger.info(f"   Push to Hub: {args.push_to_hub}")
     
     if args.dry_run:
-        logger.info("✅ 试运行完成，参数验证通过")
+        logger.info("✅ Dry run completed, parameter validation passed")
         return 0
     
-    # 执行转换
+    # Execute conversion
     try:
         converter = UnifiedConverter(num_workers=args.num_workers)
         
@@ -704,11 +703,11 @@ def main():
             image_writer_threads=args.image_writer_threads,
         )
         
-        logger.info("✅ 转换完成!")
+        logger.info("✅ Conversion completed!")
         return 0
         
     except Exception as e:
-        logger.error(f"转换失败: {e}")
+        logger.error(f"Conversion failed: {e}")
         if args.verbose:
             import traceback
             traceback.print_exc()

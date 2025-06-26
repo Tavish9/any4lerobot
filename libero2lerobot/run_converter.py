@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Libero RLDS to LeRobot Converter Runner Script
+Libero 统一转换器运行脚本
 
-Provides complete command line interface, similar to other any4lerobot projects.
+支持自动识别RLDS和HDF5格式，提供完整的命令行接口。
 """
 
 import argparse
@@ -12,124 +12,167 @@ from pathlib import Path
 import logging
 
 def create_argument_parser():
-    """Create command line argument parser, similar to other any4lerobot projects"""
+    """创建命令行参数解析器，支持RLDS和HDF5格式"""
     parser = argparse.ArgumentParser(
-        description="Convert Libero RLDS dataset to LeRobot format",
+        description="将Libero数据集（RLDS或HDF5格式）转换为LeRobot格式",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Example usage:
+示例用法:
+  # 自动检测格式并转换
   python run_converter.py \\
-    --data-dir /path/to/libero/data \\
-    --repo-id username/libero_dataset \\
+    --data-dir /path/to/data \\
+    --repo-id username/dataset_name \\
     --push-to-hub \\
+    --use-videos \\
+    --num-workers 4
+
+  # HDF5格式，指定配置和任务名称
+  python run_converter.py \\
+    --data-dir /path/to/hdf5/data \\
+    --repo-id username/hdf5_dataset \\
+    --config config.json \\
+    --task-name "pick_and_place" \\
+    --num-workers 8
+
+  # RLDS格式（传统用法）
+  python run_converter.py \\
+    --data-dir /path/to/rlds/data \\
+    --repo-id username/libero_dataset \\
     --use-videos
 
-Supported datasets: libero_10_no_noops, libero_goal_no_noops, 
-                   libero_object_no_noops, libero_spatial_no_noops
+支持的数据集: 
+  RLDS: libero_10_no_noops, libero_goal_no_noops, 
+        libero_object_no_noops, libero_spatial_no_noops
+  HDF5: 任何包含trajectory.hdf5文件的目录结构
         """
     )
     
-    # Required arguments
+    # 必需参数
     parser.add_argument(
         "--data-dir",
         type=str,
         required=True,
-        help="Directory path containing Libero RLDS datasets"
+        help="包含数据集的目录路径（自动检测RLDS或HDF5格式）"
     )
     parser.add_argument(
         "--repo-id", 
         type=str,
         required=True,
-        help="Repository ID for output dataset (format: username/dataset_name)"
+        help="输出数据集的仓库ID (格式: username/dataset_name)"
     )
     
-    # Output configuration
+    # 输出配置
     parser.add_argument(
         "--output-dir",
         type=str,
         default=None,
-        help="Local output directory (default: LEROBOT_HOME)"
+        help="本地输出目录 (默认: LEROBOT_HOME)"
     )
     parser.add_argument(
         "--push-to-hub",
         action="store_true",
-        help="Push to Hugging Face Hub after conversion"
+        help="转换后推送到Hugging Face Hub"
     )
     parser.add_argument(
         "--private",
         action="store_true",
-        help="Create private dataset"
+        help="创建私有数据集"
     )
     
-    # Data format
+    # 数据格式
     parser.add_argument(
         "--use-videos",
         action="store_true",
         default=True,
-        help="Use video format for storing images (default: True)"
+        help="使用视频格式存储图像 (默认: True)"
     )
     parser.add_argument(
         "--robot-type",
         type=str,
         default="panda",
-        help="Robot type (default: panda)"
+        help="机器人类型 (默认: panda)"
     )
     parser.add_argument(
         "--fps",
         type=int,
         default=20,
-        help="Frame rate (default: 20)"
+        help="帧率 (默认: 20)"
     )
     
-    # Performance parameters
+    # HDF5特定参数
+    parser.add_argument(
+        "--config",
+        type=str,
+        help="HDF5格式的配置文件路径（可选）"
+    )
+    parser.add_argument(
+        "--task-name",
+        type=str,
+        default="default_task",
+        help="HDF5格式的任务名称 (默认: default_task)"
+    )
+    
+    # 性能参数
+    parser.add_argument(
+        "--num-workers",
+        type=int,
+        default=2,
+        help="并行处理的工作线程数 (默认: 2)"
+    )
     parser.add_argument(
         "--image-writer-processes",
         type=int,
-        default=5,
-        help="Number of image writer processes (default: 5)"
+        default=2,
+        help="图像写入进程数 (默认: 2)"
     )
     parser.add_argument(
         "--image-writer-threads",
         type=int,
-        default=10,
-        help="Number of image writer threads (default: 10)"
+        default=2,
+        help="图像写入线程数 (默认: 2)"
     )
     
-    # Hub configuration
+    # Hub配置
     parser.add_argument(
         "--license",
         type=str,
         default="apache-2.0",
-        help="Dataset license (default: apache-2.0)"
+        help="数据集许可证 (默认: apache-2.0)"
     )
     parser.add_argument(
         "--tags",
         nargs="+",
-        default=["libero", "panda", "robotics", "lerobot"],
-        help="Dataset tags"
+        default=["libero", "robotics", "lerobot"],
+        help="数据集标签"
     )
     
-    # Debug options
+    # 调试选项
     parser.add_argument(
         "--verbose",
         action="store_true",
-        help="Verbose logging output"
+        help="详细日志输出"
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Dry run mode"
+        help="试运行模式（检查参数，不执行转换）"
+    )
+    parser.add_argument(
+        "--force-format",
+        type=str,
+        choices=["rlds", "hdf5"],
+        help="强制指定数据格式，跳过自动检测"
     )
     
     return parser
 
 
 def main():
-    """Main function"""
+    """主函数"""
     parser = create_argument_parser()
     args = parser.parse_args()
     
-    # Set up logging
+    # 设置日志
     level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(
         level=level,
@@ -137,29 +180,36 @@ def main():
     )
     logger = logging.getLogger(__name__)
     
-    # Validate arguments
+    # 验证参数
     if not Path(args.data_dir).exists():
-        logger.error(f"Data directory does not exist: {args.data_dir}")
+        logger.error(f"数据目录不存在: {args.data_dir}")
         return 1
     
     if "/" not in args.repo_id:
-        logger.error(f"Invalid repo_id format: {args.repo_id}")
+        logger.error(f"repo_id格式错误，应为 'username/dataset_name': {args.repo_id}")
         return 1
     
-    logger.info("📋 Conversion configuration:")
-    logger.info(f"  Data source: {args.data_dir}")
-    logger.info(f"  Repository ID: {args.repo_id}")
-    logger.info(f"  Output directory: {args.output_dir or 'LEROBOT_HOME'}")
-    logger.info(f"  Use videos: {args.use_videos}")
-    logger.info(f"  Push to Hub: {args.push_to_hub}")
+    logger.info("📋 转换配置:")
+    logger.info(f"  数据源: {args.data_dir}")
+    logger.info(f"  仓库ID: {args.repo_id}")
+    logger.info(f"  输出目录: {args.output_dir or 'LEROBOT_HOME'}")
+    logger.info(f"  并行线程数: {args.num_workers}")
+    logger.info(f"  使用视频: {args.use_videos}")
+    logger.info(f"  推送到Hub: {args.push_to_hub}")
+    if args.config:
+        logger.info(f"  配置文件: {args.config}")
+    if args.task_name != "default_task":
+        logger.info(f"  任务名称: {args.task_name}")
     
     if args.dry_run:
-        logger.info("✅ Dry run completed, parameter validation passed")
+        logger.info("✅ 试运行完成，参数验证通过")
         return 0
     
-    # Call converter
+    # 调用统一转换器
     try:
-        from libero_rlds_converter import convert_libero_dataset
+        from libero_rlds_converter import UnifiedConverter
+        
+        converter = UnifiedConverter(num_workers=args.num_workers)
         
         hub_config = {
             "tags": args.tags,
@@ -167,7 +217,13 @@ def main():
             "license": args.license,
         }
         
-        dataset = convert_libero_dataset(
+        # 如果指定了强制格式，先临时修改检测器
+        if args.force_format:
+            logger.info(f"强制使用格式: {args.force_format}")
+            original_detect = converter.detector.detect_format
+            converter.detector.detect_format = lambda x: args.force_format
+        
+        dataset = converter.convert_dataset(
             data_dir=args.data_dir,
             repo_id=args.repo_id,
             output_dir=args.output_dir,
@@ -175,19 +231,32 @@ def main():
             use_videos=args.use_videos,
             robot_type=args.robot_type,
             fps=args.fps,
+            task_name=args.task_name,
+            config_path=args.config,
             hub_config=hub_config,
             image_writer_processes=args.image_writer_processes,
             image_writer_threads=args.image_writer_threads,
         )
         
-        logger.info("✅ Conversion completed!")
+        logger.info("✅ 转换完成!")
+        logger.info(f"📊 数据集信息:")
+        logger.info(f"  总episode数: {len(dataset)}")
+        logger.info(f"  数据集路径: {dataset.root}")
+        
         return 0
         
     except ImportError as e:
-        logger.error(f"Import error: {e}")
+        logger.error(f"导入错误: {e}")
+        logger.error("请确保已安装所需依赖:")
+        logger.error("  pip install opencv-python h5py tqdm")
+        logger.error("  pip install tensorflow tensorflow-datasets  # 用于RLDS支持")
+        logger.error("  pip install lerobot  # 主要包")
         return 1
     except Exception as e:
-        logger.error(f"Conversion failed: {e}")
+        logger.error(f"转换失败: {e}")
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
         return 1
 
 
