@@ -232,11 +232,14 @@ def main(
     pattern = re.compile(r"_SCENE\d+_(.*?)_demo\.hdf5")
     for src_path in src_paths:
         for input_h5 in src_path.glob("*.hdf5"):
+            match = pattern.search(input_h5.name)
+            if match is None:
+                continue
             tasks.append(
                 (
                     input_h5,
                     (output_path / (src_path.name + "_temp") / input_h5.stem).resolve(),
-                    pattern.search(input_h5.name).group(1).replace("_", " "),
+                    match.group(1).replace("_", " "),
                 )
             )
     if len(src_paths) > 1:
@@ -308,8 +311,8 @@ if __name__ == "__main__":
     parser.add_argument("--cpus-per-task", type=int, default=1)
     parser.add_argument("--tasks-per-job", type=int, default=1, help="number of concurrent tasks per job, only used for ray")
     parser.add_argument("--workers", type=int, default=-1, help="number of concurrent jobs to run")
-    parser.add_argument("--resume-from-save", type=str, help="logs directory to resume from save step")
-    parser.add_argument("--resume-from-aggregate", type=str, help="logs directory to resume from aggregate step")
+    parser.add_argument("--resume-from-save", type=Path, help="logs directory to resume from save step")
+    parser.add_argument("--resume-from-aggregate", type=Path, help="logs directory to resume from aggregate step")
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--repo-id", type=str, help="required when push-to-hub is True")
     parser.add_argument("--push-to-hub", action="store_true", help="upload to hub")
