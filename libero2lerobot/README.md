@@ -18,7 +18,7 @@ Dataset Structure of `meta/info.json`:
   "robot_type": "franka", // specific robot type
   "fps": 20, // control frequency
   "features": {
-    "observation.images.image_key": {
+    "observation.images.image": {
         "dtype": "video",
         "shape": [
             256,
