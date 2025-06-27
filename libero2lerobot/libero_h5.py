@@ -173,12 +173,6 @@ class AggregateDatasets(PipelineStep):
     def run(self, data=None, rank: int = 0, world_size: int = 1):
         logger = setup_logger()
 
-        def _update(row, aggr_index_shift, aggr_episode_index_shift, task_index_to_aggr_task_index):
-            row["index"] = row["index"] + aggr_index_shift
-            row["episode_index"] = row["episode_index"] + aggr_episode_index_shift
-            row["task_index"] = task_index_to_aggr_task_index[row["task_index"]]
-            return row
-
         dataset_index = rank
         aggr_meta = LeRobotDatasetMetadata("", root=self.aggregated_dir)
         meta = LeRobotDatasetMetadata("", root=self.raw_dirs[dataset_index])
@@ -194,13 +188,11 @@ class AggregateDatasets(PipelineStep):
             aggr_data_path.parent.mkdir(parents=True, exist_ok=True)
 
             # update index, episode_index and task_index
-            pd.read_parquet(data_path).apply(
-                _update,
-                aggr_index_shift=aggr_index_shift,
-                aggr_episode_index_shift=aggr_episode_index_shift,
-                task_index_to_aggr_task_index=task_index_to_aggr_task_index,
-                axis=1,
-            ).to_parquet(aggr_data_path)
+            df = pd.read_parquet(data_path)
+            df["index"] += aggr_index_shift
+            df["episode_index"] += aggr_episode_index_shift
+            df["task_index"] = df["task_index"].map(task_index_to_aggr_task_index)
+            df.to_parquet(aggr_data_path)
 
         logger.info("Copy videos")
         for episode_index in range(meta.total_episodes):
