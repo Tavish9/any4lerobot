@@ -299,7 +299,7 @@ def main(
                 private=False,
                 push_videos=True,
                 license="apache-2.0",
-                upload_large_folder=True,
+                upload_large_folder=False,
             )
 
 
