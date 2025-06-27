@@ -93,7 +93,7 @@ Dataset Structure of `meta/info.json`:
    ```bash
    pip install h5py
    pip install -U datatrove
-   pip install -U "datatrove[ray]" # if you want ray faetures
+   pip install -U "datatrove[ray]" # if you want ray features
    ```
 
 ## Get started
