@@ -204,7 +204,7 @@ class AggregateDatasets(PipelineStep):
                 shutil.copy(video_path, aggr_video_path)
 
 
-class DeleteOriginalData(PipelineStep):
+class DeleteTempData(PipelineStep):
     def __init__(self, temp_dirs: list[Path]):
         self.temp_dirs = temp_dirs
 
@@ -281,7 +281,7 @@ def main(
 
     executor(pipeline=[SaveLerobotDataset(tasks)], **executor_config, logging_dir=resume_from_save).run()
     executor(
-        pipeline=[DeleteOriginalData([task[1] for task in tasks])],
+        pipeline=[DeleteTempData([task[1] for task in tasks])],
         **executor_config,
         depends=executor(
             pipeline=[AggregateDatasets([task[1] for task in tasks], aggregate_output_path)],
