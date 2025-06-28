@@ -276,7 +276,7 @@ def main(
     executor_config = {
         "tasks": len(tasks),
         "workers": workers,
-        **({"cpus_per_task": cpus_per_task, "tasks_per_job": tasks_per_job} if executor == "ray" else {}),
+        **({"cpus_per_task": cpus_per_task, "tasks_per_job": tasks_per_job} if executor is RayPipelineExecutor else {}),
     }
 
     executor(pipeline=[SaveLerobotDataset(tasks)], **executor_config, logging_dir=resume_from_save).run()
