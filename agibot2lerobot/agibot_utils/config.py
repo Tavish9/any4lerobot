@@ -7,7 +7,7 @@ AgiBotWorld_BETA_GRIPPER_CONFIG = {
         },
         "head_center_fisheye": {
             "dtype": "video",
-            "shape": (748, 960, 3),
+            "shape": (768, 960, 3),
             "names": ["height", "width", "rgb"],
         },
         "head_depth": {
@@ -17,12 +17,12 @@ AgiBotWorld_BETA_GRIPPER_CONFIG = {
         },
         "head_left_fisheye": {
             "dtype": "video",
-            "shape": (748, 960, 3),
+            "shape": (768, 960, 3),
             "names": ["height", "width", "rgb"],
         },
         "head_right_fisheye": {
             "dtype": "video",
-            "shape": (748, 960, 3),
+            "shape": (768, 960, 3),
             "names": ["height", "width", "rgb"],
         },
         "hand_left": {
@@ -37,12 +37,12 @@ AgiBotWorld_BETA_GRIPPER_CONFIG = {
         },
         "back_left_fisheye": {
             "dtype": "video",
-            "shape": (748, 960, 3),
+            "shape": (768, 960, 3),
             "names": ["height", "width", "rgb"],
         },
         "back_right_fisheye": {
             "dtype": "video",
-            "shape": (748, 960, 3),
+            "shape": (768, 960, 3),
             "names": ["height", "width", "rgb"],
         },
     },
@@ -148,7 +148,7 @@ AgiBotWorld_BETA_DEXHAND_CONFIG = {
         },
         "head_center_fisheye": {
             "dtype": "video",
-            "shape": (748, 960, 3),
+            "shape": (768, 960, 3),
             "names": ["height", "width", "rgb"],
         },
         "head_depth": {
@@ -158,32 +158,32 @@ AgiBotWorld_BETA_DEXHAND_CONFIG = {
         },
         "head_left_fisheye": {
             "dtype": "video",
-            "shape": (748, 960, 3),
+            "shape": (768, 960, 3),
             "names": ["height", "width", "rgb"],
         },
         "head_right_fisheye": {
             "dtype": "video",
-            "shape": (748, 960, 3),
+            "shape": (768, 960, 3),
             "names": ["height", "width", "rgb"],
         },
         "hand_left_fisheye": {
             "dtype": "video",
-            "shape": (748, 960, 3),
+            "shape": (768, 960, 3),
             "names": ["height", "width", "rgb"],
         },
         "hand_right_fisheye": {
             "dtype": "video",
-            "shape": (748, 960, 3),
+            "shape": (768, 960, 3),
             "names": ["height", "width", "rgb"],
         },
         "back_left_fisheye": {
             "dtype": "video",
-            "shape": (748, 960, 3),
+            "shape": (768, 960, 3),
             "names": ["height", "width", "rgb"],
         },
         "back_right_fisheye": {
             "dtype": "video",
-            "shape": (748, 960, 3),
+            "shape": (768, 960, 3),
             "names": ["height", "width", "rgb"],
         },
     },
