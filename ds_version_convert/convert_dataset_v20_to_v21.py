@@ -19,11 +19,11 @@ from multiprocessing import cpu_count
 
 import numpy as np
 from huggingface_hub import HfApi
-from lerobot.common.datasets.compute_stats import get_feature_stats
-from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
-from lerobot.common.datasets.utils import EPISODES_STATS_PATH, STATS_PATH, load_stats, write_episode_stats, write_info
-from lerobot.common.datasets.v21.convert_dataset_v20_to_v21 import V20, V21, SuppressWarnings
-from lerobot.common.datasets.v21.convert_stats import check_aggregate_stats, convert_stats, sample_episode_video_frames
+from lerobot.datasets.compute_stats import get_feature_stats
+from lerobot.datasets.lerobot_dataset import LeRobotDataset
+from lerobot.datasets.utils import EPISODES_STATS_PATH, STATS_PATH, load_stats, write_episode_stats, write_info
+from lerobot.datasets.v21.convert_dataset_v20_to_v21 import V20, V21, SuppressWarnings
+from lerobot.datasets.v21.convert_stats import check_aggregate_stats, convert_stats, sample_episode_video_frames
 from tqdm import tqdm
 
 

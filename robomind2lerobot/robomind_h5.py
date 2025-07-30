@@ -9,9 +9,9 @@ import numpy as np
 import pandas as pd
 import ray
 import torch
-from lerobot.common.datasets.compute_stats import aggregate_stats
-from lerobot.common.datasets.lerobot_dataset import LeRobotDataset, LeRobotDatasetMetadata
-from lerobot.common.datasets.utils import (
+from lerobot.datasets.compute_stats import aggregate_stats
+from lerobot.datasets.lerobot_dataset import LeRobotDataset, LeRobotDatasetMetadata
+from lerobot.datasets.utils import (
     check_timestamps_sync,
     get_episode_data_index,
     validate_episode_buffer,
@@ -20,7 +20,7 @@ from lerobot.common.datasets.utils import (
     write_episode_stats,
     write_info,
 )
-from lerobot.common.datasets.video_utils import get_safe_default_codec
+from lerobot.datasets.video_utils import get_safe_default_codec
 from ray.runtime_env import RuntimeEnv
 from robomind_uitls.configs import ROBOMIND_CONFIG
 from robomind_uitls.lerobot_uitls import compute_episode_stats, generate_features_from_config

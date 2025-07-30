@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import tensorflow_datasets as tfds
-from lerobot.common.datasets.lerobot_dataset import LeRobotDataset, LeRobotDatasetMetadata
+from lerobot.datasets.lerobot_dataset import LeRobotDataset, LeRobotDatasetMetadata
 from tensorflow_datasets.core.file_adapters import FileFormat
 from tensorflow_datasets.core.utils.lazy_imports_utils import apache_beam as beam
 from tensorflow_datasets.rlds import rlds_base

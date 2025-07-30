@@ -1,5 +1,5 @@
 import tqdm
-from lerobot.common.datasets.lerobot_dataset import LeRobotDatasetMetadata
+from lerobot.datasets.lerobot_dataset import LeRobotDatasetMetadata
 
 
 def validate_all_metadata(all_metadata: list[LeRobotDatasetMetadata]):

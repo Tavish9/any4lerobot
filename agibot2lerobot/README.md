@@ -125,7 +125,7 @@ Dataset Structure of `meta/info.json`:
 ## Get started
 
 > [!IMPORTANT]  
-> 1.If you want to save depth when converting the dataset, modify `_assert_type_and_shape()` function in [lerobot.common.datasets.compute_stats.py](https://github.com/huggingface/lerobot/blob/main/lerobot/common/datasets/compute_stats.py).
+> 1.If you want to save depth when converting the dataset, modify `_assert_type_and_shape()` function in [lerobot.datasets.compute_stats.py](https://github.com/huggingface/lerobot/blob/main/src/lerobot/datasets/compute_stats.py).
 >
 > ```python
 > def _assert_type_and_shape(stats_list: list[dict[str, dict]]):

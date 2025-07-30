@@ -71,7 +71,7 @@ Dataset Structure of `meta/info.json`:
 ## Get started
 
 > [!IMPORTANT]  
-> 1.for `bc_z` dataset, modify `encode_video_frames()` in `lerobot/common/datasets/video_utils.py`.
+> 1.for `bc_z` dataset, modify `encode_video_frames()` in `src/lerobot/datasets/video_utils.py`.
 > 
 > ```python
 > # add the following content to line 141:

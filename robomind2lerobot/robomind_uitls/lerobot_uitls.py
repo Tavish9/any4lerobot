@@ -1,7 +1,7 @@
 import numpy as np
 import torchvision
-from lerobot.common.datasets.compute_stats import auto_downsample_height_width, get_feature_stats, sample_indices
-from lerobot.common.datasets.utils import load_image_as_numpy
+from lerobot.datasets.compute_stats import auto_downsample_height_width, get_feature_stats, sample_indices
+from lerobot.datasets.utils import load_image_as_numpy
 
 torchvision.set_video_backend("pyav")
 

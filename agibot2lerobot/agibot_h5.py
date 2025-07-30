@@ -13,9 +13,9 @@ import torch
 from agibot_utils.agibot_utils import get_task_info, load_local_dataset
 from agibot_utils.config import AgiBotWorld_TASK_TYPE
 from agibot_utils.lerobot_utils import compute_episode_stats, generate_features_from_config
-from lerobot.common.datasets.compute_stats import aggregate_stats
-from lerobot.common.datasets.lerobot_dataset import LeRobotDataset, LeRobotDatasetMetadata
-from lerobot.common.datasets.utils import (
+from lerobot.datasets.compute_stats import aggregate_stats
+from lerobot.datasets.lerobot_dataset import LeRobotDataset, LeRobotDatasetMetadata
+from lerobot.datasets.utils import (
     check_timestamps_sync,
     get_episode_data_index,
     validate_episode_buffer,
@@ -24,7 +24,7 @@ from lerobot.common.datasets.utils import (
     write_episode_stats,
     write_info,
 )
-from lerobot.common.datasets.video_utils import get_safe_default_codec
+from lerobot.datasets.video_utils import get_safe_default_codec
 from ray.runtime_env import RuntimeEnv
 
 
