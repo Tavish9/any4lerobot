@@ -113,6 +113,7 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
 - [Physical AI Tools](https://github.com/ROBOTIS-GIT/physical_ai_tools): Physical AI Development Interface with LeRobot and ROS 2 [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/ROBOTIS-GIT/physical_ai_tools">](https://github.com/ROBOTIS-GIT/physical_ai_tools)
 - [LeRobot.js](https://github.com/TimPietrusky/lerobot.js): interact with your robot in JS, inspired by LeRobot [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/TimPietrusky/lerobot.js">](https://github.com/TimPietrusky/lerobot.js)
 - [LeLab](https://github.com/nicolas-rabault/leLab): A web UI interface on top of lerobot [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/nicolas-rabault/leLab">](https://github.com/nicolas-rabault/leLab)
+- [LeRobot Episode Scoring Toolkit](https://github.com/RoboticsData/score_lerobot_episodes): One-click tool to score, filter, and export higher-quality LeRobot datasets [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/RoboticsData/score_lerobot_episodes">](https://github.com/RoboticsData/score_lerobot_episodes)
 
 ## 👷‍♂️ Contributing
 
