@@ -119,7 +119,7 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
 
 ## 👷‍♂️ Contributing
 
-We appreciate all contributions to improving Any4LeRobot. 
+We appreciate all contributions to improving Any4LeRobot.
 
 <a href="https://github.com/Tavish9/any4lerobot/graphs/contributors" target="_blank">
   <table>
