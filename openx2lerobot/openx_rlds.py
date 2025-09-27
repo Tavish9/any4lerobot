@@ -37,8 +37,8 @@ from pathlib import Path
 import numpy as np
 import tensorflow as tf
 import tensorflow_datasets as tfds
-from lerobot.constants import HF_LEROBOT_HOME
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
+from lerobot.utils.constants import HF_LEROBOT_HOME
 from oxe_utils.configs import OXE_DATASET_CONFIGS, ActionEncoding, StateEncoding
 from oxe_utils.transforms import OXE_STANDARDIZATION_TRANSFORMS
 
@@ -147,8 +147,8 @@ def save_as_lerobot_dataset(lerobot_dataset: LeRobotDataset, raw_dataset: tf.dat
                     **image_dict,
                     "observation.state": traj["proprio"][i],
                     "action": traj["action"][i],
+                    "task": traj["task"][0].decode(),
                 },
-                task=traj["task"][0].decode(),
             )
         lerobot_dataset.save_episode()
 
