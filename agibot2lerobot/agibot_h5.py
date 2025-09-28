@@ -118,7 +118,7 @@ class AgiBotDataset(LeRobotDataset):
             # Reset episode buffer and clean up temporary images (if not already deleted during video encoding)
             self.clear_episode_buffer(delete_images=len(self.meta.image_keys) > 0)
 
-    def _encode_temporary_episode_video(self, video_key: str, episode_index: int) -> dict:
+    def _encode_temporary_episode_video(self, video_key: str, episode_index: int) -> Path:
         """
         Use ffmpeg to convert frames stored as png into mp4 videos.
         Note: `encode_video_frames` is a blocking call. Making it asynchronous shouldn't speedup encoding,
