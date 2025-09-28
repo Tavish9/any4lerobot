@@ -8,18 +8,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import ray
-import torch
 from lerobot.datasets.compute_stats import aggregate_stats
 from lerobot.datasets.lerobot_dataset import LeRobotDataset, LeRobotDatasetMetadata
-from lerobot.datasets.utils import (
-    check_timestamps_sync,
-    get_episode_data_index,
-    validate_episode_buffer,
-    validate_frame,
-    write_episode,
-    write_episode_stats,
-    write_info,
-)
+from lerobot.datasets.utils import flatten_dict, validate_episode_buffer, write_info, write_stats
 from lerobot.datasets.video_utils import get_safe_default_codec
 from ray.runtime_env import RuntimeEnv
 from robomind_uitls.configs import ROBOMIND_CONFIG
@@ -37,38 +28,31 @@ class RoboMINDDatasetMetadata(LeRobotDatasetMetadata):
         episode_length: int,
         episode_tasks: list[str],
         episode_stats: dict[str, dict],
-        action_config: dict[str, str | dict],
+        episode_metadata: dict,
     ) -> None:
+        episode_dict = {
+            "episode_index": episode_index,
+            "tasks": episode_tasks,
+            "length": episode_length,
+        }
+        episode_dict.update(episode_metadata)
+        episode_dict.update(flatten_dict({"stats": episode_stats}))
+        self._save_episode_metadata(episode_dict)
+
+        # Update info
         self.info["total_episodes"] += 1
         self.info["total_frames"] += episode_length
-
-        chunk = self.get_episode_chunk(episode_index)
-        if chunk >= self.total_chunks:
-            self.info["total_chunks"] += 1
-
+        self.info["total_tasks"] = len(self.tasks)
         if split == "train":
             self.info["splits"]["train"] = f"0:{self.info['total_episodes']}"
             self.train_count = self.info["total_episodes"]
         elif "val" in split:
             self.info["splits"]["validation"] = f"{self.train_count}:{self.info['total_episodes']}"
-        self.info["total_videos"] += len(self.video_keys)
-        if len(self.video_keys) > 0:
-            self.update_video_info()
 
         write_info(self.info, self.root)
 
-        episode_dict = {
-            "episode_index": episode_index,
-            "tasks": episode_tasks,
-            "length": episode_length,
-            **({"action_config": action_config} if action_config else {}),
-        }
-        self.episodes[episode_index] = episode_dict
-        write_episode(episode_dict, self.root)
-
-        self.episodes_stats[episode_index] = episode_stats
-        self.stats = aggregate_stats([self.stats, episode_stats]) if self.stats else episode_stats
-        write_episode_stats(episode_index, episode_stats, self.root)
+        self.stats = aggregate_stats([self.stats, episode_stats]) if self.stats is not None else episode_stats
+        write_stats(self.stats, self.root)
 
 
 class RoboMINDDataset(LeRobotDataset):
@@ -85,6 +69,7 @@ class RoboMINDDataset(LeRobotDataset):
         image_writer_processes: int = 0,
         image_writer_threads: int = 0,
         video_backend: str | None = None,
+        batch_encoding_size: int = 1,
     ) -> "LeRobotDataset":
         """Create a LeRobot Dataset from scratch in order to record data."""
         obj = cls.__new__(cls)
@@ -101,6 +86,8 @@ class RoboMINDDataset(LeRobotDataset):
         obj.revision = None
         obj.tolerance_s = tolerance_s
         obj.image_writer = None
+        obj.batch_encoding_size = batch_encoding_size
+        obj.episodes_since_last_encoding = 0
 
         if image_writer_processes or image_writer_threads:
             obj.start_image_writer(image_writer_processes, image_writer_threads)
@@ -113,53 +100,10 @@ class RoboMINDDataset(LeRobotDataset):
         obj.image_transforms = None
         obj.delta_timestamps = None
         obj.delta_indices = None
-        obj.episode_data_index = None
         obj.video_backend = video_backend if video_backend is not None else get_safe_default_codec()
         return obj
 
-    def add_frame(self, frame: dict, task: str, timestamp: float | None = None) -> None:
-        """
-        This function only adds the frame to the episode_buffer. Apart from images — which are written in a
-        temporary directory — nothing is written to disk. To save those frames, the 'save_episode()' method
-        then needs to be called.
-        """
-        # Convert torch to numpy if needed
-        for name in frame:
-            if isinstance(frame[name], torch.Tensor):
-                frame[name] = frame[name].numpy()
-
-        validate_frame(frame, self.features)
-
-        if self.episode_buffer is None:
-            self.episode_buffer = self.create_episode_buffer()
-
-        # Automatically add frame_index and timestamp to episode buffer
-        frame_index = self.episode_buffer["size"]
-        if timestamp is None:
-            timestamp = frame_index / self.fps
-        self.episode_buffer["frame_index"].append(frame_index)
-        self.episode_buffer["timestamp"].append(timestamp)
-        self.episode_buffer["task"].append(task)
-
-        # Add frame features to episode_buffer
-        for key, value in frame.items():
-            if key not in self.features:
-                raise ValueError(f"An element of the frame is not in the features. '{key}' not in '{self.features.keys()}'.")
-
-            if self.features[key]["dtype"] in ["video"]:
-                img_path = self._get_image_file_path(
-                    episode_index=self.episode_buffer["episode_index"], image_key=key, frame_index=frame_index
-                )
-                if frame_index == 0:
-                    img_path.parent.mkdir(parents=True, exist_ok=True)
-                self._save_image(value, img_path)
-                self.episode_buffer[key].append(str(img_path))
-            else:
-                self.episode_buffer[key].append(value)
-
-        self.episode_buffer["size"] += 1
-
-    def save_episode(self, split, action_config: dict, episode_data: dict | None = None, keep_images: bool = False) -> None:
+    def save_episode(self, split, action_config: dict, episode_data: dict | None = None) -> None:
         """
         This will save to disk the current episode in self.episode_buffer.
 
@@ -168,8 +112,7 @@ class RoboMINDDataset(LeRobotDataset):
                 save the current episode in self.episode_buffer, which is filled with 'add_frame'. Defaults to
                 None.
         """
-        if not episode_data:
-            episode_buffer = self.episode_buffer
+        episode_buffer = episode_data if episode_data is not None else self.episode_buffer
 
         validate_episode_buffer(episode_buffer, self.meta.total_episodes, self.features)
 
@@ -182,11 +125,8 @@ class RoboMINDDataset(LeRobotDataset):
         episode_buffer["index"] = np.arange(self.meta.total_frames, self.meta.total_frames + episode_length)
         episode_buffer["episode_index"] = np.full((episode_length,), episode_index)
 
-        # Add new tasks to the tasks dictionary
-        for task in episode_tasks:
-            task_index = self.meta.get_task_index(task)
-            if task_index is None:
-                self.meta.add_task(task)
+        # Update tasks and task indices with new tasks if any
+        self.meta.save_episode_tasks(episode_tasks)
 
         # Given tasks in natural language, find their corresponding task indices
         episode_buffer["task_index"] = np.array([self.meta.get_task_index(task) for task in tasks])
@@ -199,35 +139,32 @@ class RoboMINDDataset(LeRobotDataset):
             episode_buffer[key] = np.stack(episode_buffer[key]).squeeze()
 
         self._wait_image_writer()
-        self._save_episode_table(episode_buffer, episode_index)
         ep_stats = compute_episode_stats(episode_buffer, self.features)
 
-        if len(self.meta.video_keys) > 0:
-            video_paths = self.encode_episode_videos(episode_index)
-            for key in self.meta.video_keys:
-                episode_buffer[key] = video_paths[key]
+        ep_metadata = self._save_episode_data(episode_buffer)
+        has_video_keys = len(self.meta.video_keys) > 0
+        use_batched_encoding = self.batch_encoding_size > 1
+
+        if has_video_keys and not use_batched_encoding:
+            for video_key in self.meta.video_keys:
+                ep_metadata.update(self._save_episode_video(video_key, episode_index))
 
         # `meta.save_episode` be executed after encoding the videos
-        self.meta.save_episode(split, episode_index, episode_length, episode_tasks, ep_stats, action_config)
+        ep_metadata.update({"action_config": action_config})
+        self.meta.save_episode(split, episode_index, episode_length, episode_tasks, ep_stats, ep_metadata)
 
-        ep_data_index = get_episode_data_index(self.meta.episodes, [episode_index])
-        ep_data_index_np = {k: t.numpy() for k, t in ep_data_index.items()}
-        check_timestamps_sync(
-            episode_buffer["timestamp"],
-            episode_buffer["episode_index"],
-            ep_data_index_np,
-            self.fps,
-            self.tolerance_s,
-        )
+        if has_video_keys and use_batched_encoding:
+            # Check if we should trigger batch encoding
+            self.episodes_since_last_encoding += 1
+            if self.episodes_since_last_encoding == self.batch_encoding_size:
+                start_ep = self.num_episodes - self.batch_encoding_size
+                end_ep = self.num_episodes
+                self._batch_save_episode_video(start_ep, end_ep)
+                self.episodes_since_last_encoding = 0
 
-        if not keep_images:
-            # delete images
-            img_dir = self.root / "images"
-            if img_dir.is_dir():
-                shutil.rmtree(self.root / "images")
-
-        if not episode_data:  # Reset the buffer
-            self.episode_buffer = self.create_episode_buffer()
+        if not episode_data:
+            # Reset episode buffer and clean up temporary images (if not already deleted during video encoding)
+            self.clear_episode_buffer(delete_images=len(self.meta.image_keys) > 0)
 
 
 def get_all_tasks(src_path: Path, output_path: Path, embodiment: str):
@@ -288,8 +225,11 @@ def save_as_lerobot_dataset(task: tuple[dict, Path, str], src_path, benchmark, e
             if status and len(raw_dataset) >= 50:
                 try:
                     for frame_data in raw_dataset:
-                        dataset.add_frame(frame_data, task_instruction)
-                    dataset.save_episode(split, action_config.get(episode_path.parent.parent.name, {}))
+                        frame_data["task"] = task_instruction
+                        dataset.add_frame(frame_data)
+                    dataset.save_episode(
+                        split, action_config.get(episode_path.parent.parent.name, {"task_summary": None, "steps": None})
+                    )
                     logging.info(f"process done for {path}, len {len(raw_dataset)}")
                 except Exception:
                     # [HACK]: not consistent image shape...
@@ -324,11 +264,7 @@ def main(
         save_as_lerobot_dataset(next(tasks), src_path, benchmark, embodiments[0], save_depth)
     else:
         runtime_env = RuntimeEnv(
-            env_vars={
-                "HDF5_USE_FILE_LOCKING": "FALSE",
-                "HF_DATASETS_DISABLE_PROGRESS_BARS": "TRUE",
-                "LD_PRELOAD": str(Path(__file__).resolve().parent / "libtcmalloc.so.4.5.3"),
-            }
+            env_vars={"HDF5_USE_FILE_LOCKING": "FALSE", "HF_DATASETS_DISABLE_PROGRESS_BARS": "TRUE"}
         )
         ray.init(runtime_env=runtime_env)
         resources = ray.available_resources()
