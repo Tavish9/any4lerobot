@@ -20,14 +20,15 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
 
 ## 📣 What's New <a><img width="35" height="20" src="https://user-images.githubusercontent.com/12782558/212848161-5e783dd6-11e8-4fe0-bbba-39ffb77730be.png"></a>
 
+- **\[2025.10.04\]** We have collected and updated all Dataset Version Conversion Scripts for LeRobot! 🔥🔥🔥
 - **\[2025.09.28\]** We have upgraded LeRobotDataset from v2.1 to v3.0! 🔥🔥🔥
 - **\[2025.06.27\]** We have supported Data Conversion from LIBERO to LeRobot! 🔥🔥🔥
 - **\[2025.05.16\]** We have supported Data Conversion from LeRobot to RLDS! 🔥🔥🔥
 - **\[2025.05.12\]** We have supported Data Conversion from RoboMIND to LeRobot! 🔥🔥🔥
-- **\[2025.04.15\]** We add Dataset Merging Tool for merging multi-source lerobot datasets! 🔥🔥🔥
 <details>
 <summary>More News</summary>
 
+- **\[2025.04.15\]** We add Dataset Merging Tool for merging multi-source lerobot datasets! 🔥🔥🔥
 - **\[2025.04.14\]** We have supported Data Conversion from AgiBotWorld to LeRobot! 🔥🔥🔥
 - **\[2025.04.11\]** We change the repo from `openx2lerobot` to `any4lerobot`, making a ​​universal toolbox for LeRobot​​! 🔥🔥🔥
 - **\[2025.02.19\]** We have supported Data Conversion from Open X-Embodiment to LeRobot! 🔥🔥🔥
@@ -53,10 +54,13 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
   - [ ] Dataset Filtering
   - [ ] Dataset Sampling
 
-- ​**Version Conversion​**​:
+- ​[**Version Conversion​**​](./ds_version_convert/README.md):
 
-  - [x] [LeRobotv2.0 to LeRobotv2.1](./ds_version_convert/README.md)
-  - [ ] LeRobotv2.1 to LeRobotv2.0
+  - [x] [LeRobotv1.6 to LeRobotv2.0](./ds_version_convert/v16_to_v20/README.md)
+  - [x] [LeRobotv2.0 to LeRobotv2.1](./ds_version_convert/v20_to_v21/README.md)
+  - [x] [LeRobotv2.1 to LeRobotv2.0](./ds_version_convert/v21_to_v20/README.md)
+  - [x] [LeRobotv2.1 to LeRobotv3.0](./ds_version_convert/v21_to_v30/README.md)
+  - [ ] LeRobotv3.0 to LeRobotv2.1
 
 - [**Want more features?**](https://github.com/Tavish9/any4lerobot/issues/new?template=feature-request.yml)
 
