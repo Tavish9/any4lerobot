@@ -68,7 +68,7 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
 
 ### Model
 
-- [EO-1](https://eo-robotics.ai/eo-1): An Open Unified Embodied Foundation Model for General Robot Control Trained on Interleaved Vision-Text-Action Data [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/EO-Robotics/EO-1">](https://github.com/EO-Robotics/EO-1)
+- [EO1](https://eo-robotics.ai/eo-1): An Open Unified Embodied Foundation Model for General Robot Control Trained on Interleaved Vision-Text-Action Data [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/EO-Robotics/EO1">](https://github.com/EO-Robotics/EO1)
 - [Hume](https://hume-vla.github.io): A Dual-System VLA with System2 Thinking [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/hume-vla/hume">](https://github.com/hume-vla/hume)
 - [OneTwoVLA](https://one-two-vla.github.io/): A Unified Vision-Language-Action Model with Adaptive Reasoning [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/Fanqi-Lin/OneTwoVLA">](https://github.com/Fanqi-Lin/OneTwoVLA)
 - [SmolVLA](https://huggingface.co/blog/smolvla): Efficient Vision-Language-Action Model trained on Lerobot Community Data [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/huggingface/lerobot">](https://github.com/huggingface/lerobot)
