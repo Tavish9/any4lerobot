@@ -89,7 +89,16 @@ def generate_features_from_raw(builder: tfds.core.DatasetBuilder, use_videos: bo
         if state_encoding == StateEncoding.POS_EULER:
             state_names = ["x", "y", "z", "roll", "pitch", "yaw", "pad", "gripper"]
             if "libero" in dataset_name:
-                state_names = ["x", "y", "z", "roll", "pitch", "yaw", "gripper", "gripper"]  # 2D gripper state
+                state_names = [
+                    "x",
+                    "y",
+                    "z",
+                    "axis_angle1",
+                    "axis_angle2",
+                    "axis_angle3",
+                    "gripper",
+                    "gripper",
+                ]  # 2D gripper state
         elif state_encoding == StateEncoding.POS_QUAT:
             state_names = ["x", "y", "z", "rx", "ry", "rz", "rw", "gripper"]
         elif state_encoding == StateEncoding.JOINT:
@@ -104,6 +113,8 @@ def generate_features_from_raw(builder: tfds.core.DatasetBuilder, use_videos: bo
         action_encoding = OXE_DATASET_CONFIGS[dataset_name]["action_encoding"]
         if action_encoding == ActionEncoding.EEF_POS:
             action_names = ["x", "y", "z", "roll", "pitch", "yaw", "gripper"]
+            if "libero" in dataset_name:
+                action_names = ["x", "y", "z", "axis_angle1", "axis_angle2", "axis_angle3", "gripper"]
         elif action_encoding == ActionEncoding.JOINT_POS:
             action_names = [f"motor_{i}" for i in range(7)] + ["gripper"]
 
