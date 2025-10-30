@@ -10,6 +10,45 @@ import pandas as pd
 from termcolor import colored
 
 
+def pad_vector_column(series, target_dim):
+    """
+    Efficiently pad vector column to target dimension using vectorized operations.
+    
+    Args:
+        series: Pandas series containing vectors (lists or numpy arrays)
+        target_dim (int): Target dimension to pad to
+        
+    Returns:
+        Pandas series with padded vectors
+    """
+    # Convert to numpy array for vectorized operations
+    arr = np.array([np.array(x) if x is not None and isinstance(x, (list, np.ndarray)) else x for x in series])
+    
+    # Check if we need padding
+    if len(arr) == 0:
+        return series
+    
+    # Get first valid value to check dimension
+    first_valid = None
+    for val in arr:
+        if val is not None and isinstance(val, np.ndarray) and len(val.shape) > 0:
+            first_valid = val
+            break
+    
+    if first_valid is None or len(first_valid) >= target_dim:
+        return series
+    
+    # Pad all vectors at once using list comprehension (faster than apply)
+    padded = [
+        np.pad(x, (0, target_dim - len(x)), 'constant').tolist()
+        if x is not None and isinstance(x, (list, np.ndarray)) and len(x) < target_dim
+        else x
+        for x in series
+    ]
+    
+    return pd.Series(padded, index=series.index)
+
+
 def load_jsonl(file_path):
     """
     从JSONL文件加载数据
@@ -122,53 +161,21 @@ def merge_stats(stats_list):
                     # Get all values
                     values = [stats[feature][stat_type] for stats in stats_list]
 
-                    # For image features, we need to preserve the nested structure
-                    # Initialize with the first value's structure
-                    result = []
-
-                    # For RGB channels
-                    for channel_idx in range(len(values[0])):
-                        channel_result = []
-
-                        # For each pixel row
-                        for pixel_idx in range(len(values[0][channel_idx])):
-                            pixel_result = []
-
-                            # For each pixel value
-                            for value_idx in range(len(values[0][channel_idx][pixel_idx])):
-                                # Calculate statistic based on type
-                                if stat_type == "mean":
-                                    # Simple average
-                                    avg = sum(
-                                        values[i][channel_idx][pixel_idx][value_idx]
-                                        for i in range(len(values))
-                                    ) / len(values)
-                                    pixel_result.append(avg)
-                                elif stat_type == "std":
-                                    # Simple average of std
-                                    avg = sum(
-                                        values[i][channel_idx][pixel_idx][value_idx]
-                                        for i in range(len(values))
-                                    ) / len(values)
-                                    pixel_result.append(avg)
-                                elif stat_type == "max":
-                                    # Maximum
-                                    max_val = max(
-                                        values[i][channel_idx][pixel_idx][value_idx]
-                                        for i in range(len(values))
-                                    )
-                                    pixel_result.append(max_val)
-                                elif stat_type == "min":
-                                    # Minimum
-                                    min_val = min(
-                                        values[i][channel_idx][pixel_idx][value_idx]
-                                        for i in range(len(values))
-                                    )
-                                    pixel_result.append(min_val)
-
-                            channel_result.append(pixel_result)
-
-                        result.append(channel_result)
+                    # Convert to numpy array for efficient computation
+                    values_array = np.array(values)
+                    
+                    # Calculate statistic using vectorized operations
+                    if stat_type == "mean":
+                        result = np.mean(values_array, axis=0).tolist()
+                    elif stat_type == "std":
+                        # Simple average of std for image features
+                        result = np.mean(values_array, axis=0).tolist()
+                    elif stat_type == "max":
+                        result = np.max(values_array, axis=0).tolist()
+                    elif stat_type == "min":
+                        result = np.min(values_array, axis=0).tolist()
+                    else:
+                        result = values[0]
 
                     merged_stats[feature][stat_type] = result
                 except Exception as e:
@@ -611,14 +618,8 @@ def copy_data_files(
                                     f"填充状态向量从 {current_dim} 维到 {state_max_dim} 维"
                                     f" (Padding state vector from {current_dim} to {state_max_dim} dimensions)"
                                 )
-                                # 使用零填充到目标维度 (Pad with zeros to target dimension)
-                                df["observation.state"] = df["observation.state"].apply(
-                                    lambda x: np.pad(x, (0, state_max_dim - len(x)), "constant").tolist()
-                                    if x is not None
-                                    and isinstance(x, (list, np.ndarray))
-                                    and len(x) < state_max_dim
-                                    else x
-                                )
+                                # 使用优化的向量填充函数 (Use optimized vector padding function)
+                                df["observation.state"] = pad_vector_column(df["observation.state"], state_max_dim)
                             break
                 
                 # 为动作向量填充
@@ -632,14 +633,8 @@ def copy_data_files(
                                     f"填充动作向量从 {current_dim} 维到 {action_max_dim} 维"
                                     f" (Padding action vector from {current_dim} to {action_max_dim} dimensions)"
                                 )
-                                # 使用零填充到目标维度 (Pad with zeros to target dimension)
-                                df["action"] = df["action"].apply(
-                                    lambda x: np.pad(x, (0, action_max_dim - len(x)), "constant").tolist()
-                                    if x is not None
-                                    and isinstance(x, (list, np.ndarray))
-                                    and len(x) < action_max_dim
-                                    else x
-                                )
+                                # 使用优化的向量填充函数 (Use optimized vector padding function)
+                                df["action"] = pad_vector_column(df["action"], action_max_dim)
                             break
 
                 # 更新episode_index列 (Update episode_index column)
@@ -731,14 +726,8 @@ def copy_data_files(
                                                 f"填充状态向量从 {current_dim} 维到 {state_max_dim} 维"
                                                 f" (Padding state vector from {current_dim} to {state_max_dim} dimensions)"
                                             )
-                                            # 使用零填充到目标维度 (Pad with zeros to target dimension)
-                                            df["observation.state"] = df["observation.state"].apply(
-                                                lambda x: np.pad(x, (0, state_max_dim - len(x)), "constant").tolist()
-                                                if x is not None
-                                                and isinstance(x, (list, np.ndarray))
-                                                and len(x) < state_max_dim
-                                                else x
-                                            )
+                                            # 使用优化的向量填充函数 (Use optimized vector padding function)
+                                            df["observation.state"] = pad_vector_column(df["observation.state"], state_max_dim)
                                         break
                             
                             # 为动作向量填充
@@ -752,14 +741,8 @@ def copy_data_files(
                                                 f"填充动作向量从 {current_dim} 维到 {action_max_dim} 维"
                                                 f" (Padding action vector from {current_dim} to {action_max_dim} dimensions)"
                                             )
-                                            # 使用零填充到目标维度 (Pad with zeros to target dimension)
-                                            df["action"] = df["action"].apply(
-                                                lambda x: np.pad(x, (0, action_max_dim - len(x)), "constant").tolist()
-                                                if x is not None
-                                                and isinstance(x, (list, np.ndarray))
-                                                and len(x) < action_max_dim
-                                                else x
-                                            )
+                                            # 使用优化的向量填充函数 (Use optimized vector padding function)
+                                            df["action"] = pad_vector_column(df["action"], action_max_dim)
                                         break
 
                             # 更新episode_index列 (Update episode_index column)
@@ -893,11 +876,9 @@ def pad_parquet_data(source_path, target_path, original_dim=14, target_dim=18):
             print(f"observation.state dimension: {state_dim}")
 
             if state_dim < target_dim:
-                # 填充向量
+                # 使用优化的向量填充函数
                 print(f"Padding observation.state from {state_dim} to {target_dim} dimensions")
-                new_df["observation.state"] = df["observation.state"].apply(
-                    lambda x: np.pad(x, (0, target_dim - len(x)), "constant").tolist()
-                )
+                new_df["observation.state"] = pad_vector_column(df["observation.state"], target_dim)
 
     # 同样处理action列
     if "action" in df.columns:
@@ -912,11 +893,9 @@ def pad_parquet_data(source_path, target_path, original_dim=14, target_dim=18):
             print(f"action dimension: {action_dim}")
 
             if action_dim < target_dim:
-                # 填充向量
+                # 使用优化的向量填充函数
                 print(f"Padding action from {action_dim} to {target_dim} dimensions")
-                new_df["action"] = df["action"].apply(
-                    lambda x: np.pad(x, (0, target_dim - len(x)), "constant").tolist()
-                )
+                new_df["action"] = pad_vector_column(df["action"], target_dim)
 
     # 确保目标目录存在
     os.makedirs(os.path.dirname(target_path), exist_ok=True)
