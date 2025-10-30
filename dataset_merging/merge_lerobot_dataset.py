@@ -1,5 +1,6 @@
 import argparse
 import contextlib
+import glob
 import json
 import os
 import shutil
@@ -233,82 +234,42 @@ def merge_stats(stats_list):
 
                 for stat_type in common_stat_types:
                     try:
-                        # Get values and their original dimensions
-                        values_with_dims = []
+                        # Get values and their original dimensions - pad all to max_dim
+                        padded_values = []
                         for stats in stats_list:
                             val = np.array(stats[feature][stat_type]).flatten()
-                            dim = len(val)
-                            values_with_dims.append((val, dim))
-
-                        # Initialize result array with zeros
-                        result = np.zeros(max_dim)
-
-                        # Calculate statistics for each dimension separately
+                            if len(val) < max_dim:
+                                val = np.pad(val, (0, max_dim - len(val)), 'constant')
+                            padded_values.append(val)
+                        
+                        padded_array = np.array(padded_values)
+                        
+                        # Calculate statistics using vectorized operations
                         if stat_type == "mean":
                             if all("count" in stats[feature] for stats in stats_list):
-                                counts = [stats[feature]["count"][0] for stats in stats_list]
-                                total_count = sum(counts)
-
-                                # For each dimension, calculate weighted mean of available values
-                                for d in range(max_dim):
-                                    dim_values = []
-                                    dim_weights = []
-                                    for (val, dim), count in zip(values_with_dims, counts, strict=False):
-                                        if d < dim:  # Only use values that have this dimension
-                                            dim_values.append(val[d])
-                                            dim_weights.append(count)
-
-                                    if dim_values:  # If we have values for this dimension
-                                        weighted_sum = sum(
-                                            v * w for v, w in zip(dim_values, dim_weights, strict=False)
-                                        )
-                                        result[d] = weighted_sum / sum(dim_weights)
+                                counts = np.array([stats[feature]["count"][0] for stats in stats_list])
+                                # Weighted mean using broadcasting
+                                weights = counts / counts.sum()
+                                result = np.sum(padded_array * weights[:, np.newaxis], axis=0)
                             else:
-                                # Simple average for each dimension
-                                for d in range(max_dim):
-                                    dim_values = [val[d] for val, dim in values_with_dims if d < dim]
-                                    if dim_values:
-                                        result[d] = sum(dim_values) / len(dim_values)
+                                result = np.mean(padded_array, axis=0)
 
                         elif stat_type == "std":
                             if all("count" in stats[feature] for stats in stats_list):
-                                counts = [stats[feature]["count"][0] for stats in stats_list]
-                                total_count = sum(counts)
-
-                                # For each dimension, calculate weighted variance
-                                for d in range(max_dim):
-                                    dim_variances = []
-                                    dim_weights = []
-                                    for (val, dim), count in zip(values_with_dims, counts, strict=False):
-                                        if d < dim:  # Only use values that have this dimension
-                                            dim_variances.append(val[d] ** 2)  # Square for variance
-                                            dim_weights.append(count)
-
-                                    if dim_variances:  # If we have values for this dimension
-                                        weighted_var = sum(
-                                            v * w for v, w in zip(dim_variances, dim_weights, strict=False)
-                                        ) / sum(dim_weights)
-                                        result[d] = np.sqrt(weighted_var)  # Take sqrt for std
+                                counts = np.array([stats[feature]["count"][0] for stats in stats_list])
+                                weights = counts / counts.sum()
+                                # Weighted variance
+                                variances = padded_array ** 2
+                                weighted_var = np.sum(variances * weights[:, np.newaxis], axis=0)
+                                result = np.sqrt(weighted_var)
                             else:
-                                # Simple average of std for each dimension
-                                for d in range(max_dim):
-                                    dim_values = [val[d] for val, dim in values_with_dims if d < dim]
-                                    if dim_values:
-                                        result[d] = sum(dim_values) / len(dim_values)
+                                result = np.mean(padded_array, axis=0)
 
                         elif stat_type == "max":
-                            # For each dimension, take the maximum of available values
-                            for d in range(max_dim):
-                                dim_values = [val[d] for val, dim in values_with_dims if d < dim]
-                                if dim_values:
-                                    result[d] = max(dim_values)
+                            result = np.max(padded_array, axis=0)
 
                         elif stat_type == "min":
-                            # For each dimension, take the minimum of available values
-                            for d in range(max_dim):
-                                dim_values = [val[d] for val, dim in values_with_dims if d < dim]
-                                if dim_values:
-                                    result[d] = min(dim_values)
+                            result = np.min(padded_array, axis=0)
 
                         # Convert result to list and store
                         merged_stats[feature][stat_type] = result.tolist()
@@ -421,36 +382,31 @@ def copy_videos(source_folders, output_folder, episode_mapping):
                 print(f"Copying video: {source_video_path} -> {dest_video_path}")
                 shutil.copy2(source_video_path, dest_video_path)
             else:
-                # If no file is found, search the directory recursively
-                found = False
-                for root, _, files in os.walk(os.path.join(old_folder, "videos")):
-                    for file in files:
-                        if file.endswith(".mp4") and video_key in root:
-                            source_video_path = os.path.join(root, file)
+                # If no file is found, search the directory recursively using glob
+                video_pattern = os.path.join(old_folder, "videos", "**", f"*{video_key}*", "*.mp4")
+                matching_files = glob.glob(video_pattern, recursive=True)
+                
+                if matching_files:
+                    source_video_path = matching_files[0]
+                    
+                    # Construct destination path
+                    dest_video_path = os.path.join(
+                        output_folder,
+                        video_path_template.format(
+                            episode_chunk=new_episode_chunk,
+                            video_key=video_key,
+                            episode_index=new_index,
+                        ),
+                    )
 
-                            # Construct destination path
-                            dest_video_path = os.path.join(
-                                output_folder,
-                                video_path_template.format(
-                                    episode_chunk=new_episode_chunk,
-                                    video_key=video_key,
-                                    episode_index=new_index,
-                                ),
-                            )
+                    # Create destination directory if it doesn't exist
+                    os.makedirs(os.path.dirname(dest_video_path), exist_ok=True)
 
-                            # Create destination directory if it doesn't exist
-                            os.makedirs(os.path.dirname(dest_video_path), exist_ok=True)
-
-                            print(
-                                f"Copying video (found by search): {source_video_path} -> {dest_video_path}"
-                            )
-                            shutil.copy2(source_video_path, dest_video_path)
-                            found = True
-                            break
-                    if found:
-                        break
-
-                if not found:
+                    print(
+                        f"Copying video (found by search): {source_video_path} -> {dest_video_path}"
+                    )
+                    shutil.copy2(source_video_path, dest_video_path)
+                else:
                     print(
                         f"Warning: Video file not found for {video_key}, episode {old_index} in {old_folder}"
                     )
@@ -485,23 +441,18 @@ def validate_timestamps(source_folders, tolerance_s=1e-4):
                         print(f"数据集 {folder} FPS={fps} (Dataset {folder} FPS={fps})")
 
             # 检查是否有parquet文件包含时间戳 (Check if any parquet files contain timestamps)
+            # Use glob for more efficient file searching
             parquet_path = None
-            for root, _, files in os.walk(os.path.join(folder, "parquet")):
-                for file in files:
-                    if file.endswith(".parquet"):
-                        parquet_path = os.path.join(root, file)
-                        break
-                if parquet_path:
-                    break
-
+            # Try parquet directory first
+            parquet_files = glob.glob(os.path.join(folder, "parquet", "**", "*.parquet"), recursive=True)
+            if parquet_files:
+                parquet_path = parquet_files[0]
+            
+            # Try data directory if not found
             if not parquet_path:
-                for root, _, files in os.walk(os.path.join(folder, "data")):
-                    for file in files:
-                        if file.endswith(".parquet"):
-                            parquet_path = os.path.join(root, file)
-                            break
-                    if parquet_path:
-                        break
+                data_files = glob.glob(os.path.join(folder, "data", "**", "*.parquet"), recursive=True)
+                if data_files:
+                    parquet_path = data_files[0]
 
             if parquet_path:
                 df = pd.read_parquet(parquet_path)
@@ -703,122 +654,118 @@ def copy_data_files(
                 failed_files.append({"file": source_path, "reason": str(e), "episode": old_index})
                 total_failed += 1
         else:
-            # 文件不在标准位置，尝试递归搜索
-            found = False
-            for root, _, files in os.walk(old_folder):
-                for file in files:
-                    if file.endswith(".parquet") and f"episode_{old_index:06d}" in file:
-                        try:
-                            source_path = os.path.join(root, file)
+            # 文件不在标准位置，尝试递归搜索 (File not in standard location, try recursive search)
+            # Use glob for more efficient searching
+            parquet_pattern = os.path.join(old_folder, "**", f"episode_{old_index:06d}.parquet")
+            matching_files = glob.glob(parquet_pattern, recursive=True)
+            
+            if matching_files:
+                try:
+                    source_path = matching_files[0]
 
-                            # 读取parquet文件 (Read parquet file)
-                            df = pd.read_parquet(source_path)
+                    # 读取parquet文件 (Read parquet file)
+                    df = pd.read_parquet(source_path)
 
-                            # 检查是否需要填充维度 - 为不同特征类型使用不同的最大维度
-                            # 为状态向量填充
-                            if "observation.state" in df.columns:
-                                # 检查第一个非空值 (Check first non-null value)
-                                for _idx, value in enumerate(df["observation.state"]):
-                                    if value is not None and isinstance(value, (list, np.ndarray)):
-                                        current_dim = len(value)
-                                        if current_dim < state_max_dim:
-                                            print(
-                                                f"填充状态向量从 {current_dim} 维到 {state_max_dim} 维"
-                                                f" (Padding state vector from {current_dim} to {state_max_dim} dimensions)"
-                                            )
-                                            # 使用优化的向量填充函数 (Use optimized vector padding function)
-                                            df["observation.state"] = pad_vector_column(df["observation.state"], state_max_dim)
-                                        break
-                            
-                            # 为动作向量填充
-                            if "action" in df.columns:
-                                # 检查第一个非空值 (Check first non-null value)
-                                for _idx, value in enumerate(df["action"]):
-                                    if value is not None and isinstance(value, (list, np.ndarray)):
-                                        current_dim = len(value)
-                                        if current_dim < action_max_dim:
-                                            print(
-                                                f"填充动作向量从 {current_dim} 维到 {action_max_dim} 维"
-                                                f" (Padding action vector from {current_dim} to {action_max_dim} dimensions)"
-                                            )
-                                            # 使用优化的向量填充函数 (Use optimized vector padding function)
-                                            df["action"] = pad_vector_column(df["action"], action_max_dim)
-                                        break
-
-                            # 更新episode_index列 (Update episode_index column)
-                            if "episode_index" in df.columns:
-                                print(
-                                    f"更新episode_index从 {df['episode_index'].iloc[0]} 到 {new_index} (Update episode_index from {df['episode_index'].iloc[0]} to {new_index})"
-                                )
-                                df["episode_index"] = new_index
-
-                            # 更新index列 (Update index column)
-                            if "index" in df.columns:
-                                if episode_to_frame_index and new_index in episode_to_frame_index:
-                                    # 使用预先计算的帧索引起始值 (Use pre-calculated frame index start value)
-                                    first_index = episode_to_frame_index[new_index]
+                    # 检查是否需要填充维度 - 为不同特征类型使用不同的最大维度
+                    # 为状态向量填充
+                    if "observation.state" in df.columns:
+                        # 检查第一个非空值 (Check first non-null value)
+                        for _idx, value in enumerate(df["observation.state"]):
+                            if value is not None and isinstance(value, (list, np.ndarray)):
+                                current_dim = len(value)
+                                if current_dim < state_max_dim:
                                     print(
-                                        f"更新index列，起始值: {first_index}（使用全局累积帧计数）(Update index column, start value: {first_index} (using global cumulative frame count))"
+                                        f"填充状态向量从 {current_dim} 维到 {state_max_dim} 维"
+                                        f" (Padding state vector from {current_dim} to {state_max_dim} dimensions)"
                                     )
-                                else:
-                                    # 如果没有提供映射，使用当前的计算方式作为回退
-                                    # (If no mapping provided, use current calculation as fallback)
-                                    first_index = new_index * len(df)
+                                    # 使用优化的向量填充函数 (Use optimized vector padding function)
+                                    df["observation.state"] = pad_vector_column(df["observation.state"], state_max_dim)
+                                break
+                    
+                    # 为动作向量填充
+                    if "action" in df.columns:
+                        # 检查第一个非空值 (Check first non-null value)
+                        for _idx, value in enumerate(df["action"]):
+                            if value is not None and isinstance(value, (list, np.ndarray)):
+                                current_dim = len(value)
+                                if current_dim < action_max_dim:
                                     print(
-                                        f"更新index列，起始值: {first_index}（使用episode索引乘以长度）(Update index column, start value: {first_index} (using episode index multiplied by length))"
+                                        f"填充动作向量从 {current_dim} 维到 {action_max_dim} 维"
+                                        f" (Padding action vector from {current_dim} to {action_max_dim} dimensions)"
                                     )
+                                    # 使用优化的向量填充函数 (Use optimized vector padding function)
+                                    df["action"] = pad_vector_column(df["action"], action_max_dim)
+                                break
 
-                                # 更新所有帧的索引 (Update indices for all frames)
-                                df["index"] = [first_index + i for i in range(len(df))]
+                    # 更新episode_index列 (Update episode_index column)
+                    if "episode_index" in df.columns:
+                        print(
+                            f"更新episode_index从 {df['episode_index'].iloc[0]} 到 {new_index} (Update episode_index from {df['episode_index'].iloc[0]} to {new_index})"
+                        )
+                        df["episode_index"] = new_index
 
-                            # 更新task_index列 (Update task_index column)
-                            if (
-                                "task_index" in df.columns
-                                and folder_task_mapping
-                                and old_folder in folder_task_mapping
-                            ):
-                                # 获取当前task_index (Get current task_index)
-                                current_task_index = df["task_index"].iloc[0]
+                    # 更新index列 (Update index column)
+                    if "index" in df.columns:
+                        if episode_to_frame_index and new_index in episode_to_frame_index:
+                            # 使用预先计算的帧索引起始值 (Use pre-calculated frame index start value)
+                            first_index = episode_to_frame_index[new_index]
+                            print(
+                                f"更新index列，起始值: {first_index}（使用全局累积帧计数）(Update index column, start value: {first_index} (using global cumulative frame count))"
+                            )
+                        else:
+                            # 如果没有提供映射，使用当前的计算方式作为回退
+                            # (If no mapping provided, use current calculation as fallback)
+                            first_index = new_index * len(df)
+                            print(
+                                f"更新index列，起始值: {first_index}（使用episode索引乘以长度）(Update index column, start value: {first_index} (using episode index multiplied by length))"
+                            )
 
-                                # 检查是否有对应的新索引 (Check if there's a corresponding new index)
-                                if current_task_index in folder_task_mapping[old_folder]:
-                                    new_task_index = folder_task_mapping[old_folder][current_task_index]
-                                    print(
-                                        f"更新task_index从 {current_task_index} 到 {new_task_index} (Update task_index from {current_task_index} to {new_task_index})"
-                                    )
-                                    df["task_index"] = new_task_index
-                                else:
-                                    print(
-                                        f"警告: 找不到task_index {current_task_index}的映射关系 (Warning: No mapping found for task_index {current_task_index})"
-                                    )
+                        # 更新所有帧的索引 (Update indices for all frames)
+                        df["index"] = [first_index + i for i in range(len(df))]
 
-                            # 计算chunk编号 (Calculate chunk number)
-                            chunk_index = new_index // chunks_size
+                    # 更新task_index列 (Update task_index column)
+                    if (
+                        "task_index" in df.columns
+                        and folder_task_mapping
+                        and old_folder in folder_task_mapping
+                    ):
+                        # 获取当前task_index (Get current task_index)
+                        current_task_index = df["task_index"].iloc[0]
 
-                            # 创建正确的目标目录 (Create correct target directory)
-                            chunk_dir = os.path.join(output_folder, "data", f"chunk-{chunk_index:03d}")
-                            os.makedirs(chunk_dir, exist_ok=True)
+                        # 检查是否有对应的新索引 (Check if there's a corresponding new index)
+                        if current_task_index in folder_task_mapping[old_folder]:
+                            new_task_index = folder_task_mapping[old_folder][current_task_index]
+                            print(
+                                f"更新task_index从 {current_task_index} 到 {new_task_index} (Update task_index from {current_task_index} to {new_task_index})"
+                            )
+                            df["task_index"] = new_task_index
+                        else:
+                            print(
+                                f"警告: 找不到task_index {current_task_index}的映射关系 (Warning: No mapping found for task_index {current_task_index})"
+                            )
 
-                            # 构建正确的目标路径 (Build correct target path)
-                            dest_path = os.path.join(chunk_dir, f"episode_{new_index:06d}.parquet")
+                    # 计算chunk编号 (Calculate chunk number)
+                    chunk_index = new_index // chunks_size
 
-                            # 保存到正确位置 (Save to correct location)
-                            df.to_parquet(dest_path, index=False)
+                    # 创建正确的目标目录 (Create correct target directory)
+                    chunk_dir = os.path.join(output_folder, "data", f"chunk-{chunk_index:03d}")
+                    os.makedirs(chunk_dir, exist_ok=True)
 
-                            total_copied += 1
-                            found = True
-                            print(f"已处理并保存: {dest_path} (Processed and saved: {dest_path})")
-                            break
-                        except Exception as e:
-                            error_msg = f"处理 {source_path} 失败: {e} (Processing {source_path} failed: {e})"
-                            print(error_msg)
-                            traceback.print_exc()
-                            failed_files.append({"file": source_path, "reason": str(e), "episode": old_index})
-                            total_failed += 1
-                if found:
-                    break
+                    # 构建正确的目标路径 (Build correct target path)
+                    dest_path = os.path.join(chunk_dir, f"episode_{new_index:06d}.parquet")
 
-            if not found:
+                    # 保存到正确位置 (Save to correct location)
+                    df.to_parquet(dest_path, index=False)
+
+                    total_copied += 1
+                    print(f"已处理并保存: {dest_path} (Processed and saved: {dest_path})")
+                except Exception as e:
+                    error_msg = f"处理 {source_path} 失败: {e} (Processing {source_path} failed: {e})"
+                    print(error_msg)
+                    traceback.print_exc()
+                    failed_files.append({"file": source_path, "reason": str(e), "episode": old_index})
+                    total_failed += 1
+            else:
                 error_msg = f"找不到episode {old_index}的parquet文件，源文件夹: {old_folder}"
                 print(error_msg)
                 failed_files.append(
@@ -1311,37 +1258,34 @@ def merge_datasets(
             folder_state_dim = state_max_dim  # 默认使用传入的状态最大维度
             folder_action_dim = action_max_dim  # 默认使用传入的动作最大维度
 
-            # Try to find a parquet file to determine dimensions
-            for root, _dirs, files in os.walk(folder):
-                for file in files:
-                    if file.endswith(".parquet"):
-                        try:
-                            df = pd.read_parquet(os.path.join(root, file))
-                            # 检查状态向量维度
-                            if "observation.state" in df.columns:
-                                for state_val in df["observation.state"]:
-                                    if state_val is not None and isinstance(state_val, (list, np.ndarray)):
-                                        folder_state_dim = len(state_val)
-                                        print(f"Detected {folder_state_dim} dimensions for state in {folder}")
-                                        break
-                            
-                            # 检查动作向量维度
-                            if "action" in df.columns:
-                                for action_val in df["action"]:
-                                    if action_val is not None and isinstance(action_val, (list, np.ndarray)):
-                                        folder_action_dim = len(action_val)
-                                        print(f"Detected {folder_action_dim} dimensions for action in {folder}")
-                                        break
-                                        
-                            # 如果两个维度都已检测到，可以停止搜索
-                            if folder_state_dim != state_max_dim and folder_action_dim != action_max_dim:
+            # Try to find a parquet file to determine dimensions using glob
+            parquet_files = glob.glob(os.path.join(folder, "**", "*.parquet"), recursive=True)
+            
+            for parquet_file in parquet_files:
+                try:
+                    df = pd.read_parquet(parquet_file)
+                    # 检查状态向量维度
+                    if "observation.state" in df.columns:
+                        for state_val in df["observation.state"]:
+                            if state_val is not None and isinstance(state_val, (list, np.ndarray)):
+                                folder_state_dim = len(state_val)
+                                print(f"Detected {folder_state_dim} dimensions for state in {folder}")
                                 break
-                        except Exception as e:
-                            print(f"Error checking dimensions in {folder}: {e}")
+                    
+                    # 检查动作向量维度
+                    if "action" in df.columns:
+                        for action_val in df["action"]:
+                            if action_val is not None and isinstance(action_val, (list, np.ndarray)):
+                                folder_action_dim = len(action_val)
+                                print(f"Detected {folder_action_dim} dimensions for action in {folder}")
+                                break
+                                
+                    # 如果两个维度都已检测到，可以停止搜索
+                    if folder_state_dim != state_max_dim and folder_action_dim != action_max_dim:
                         break
-                # 如果两个维度都已检测到，可以停止搜索
-                if folder_state_dim != state_max_dim and folder_action_dim != action_max_dim:
-                    break
+                except Exception as e:
+                    print(f"Error checking dimensions in {folder}: {e}")
+                    continue
 
             folder_state_dimensions[folder] = folder_state_dim
             folder_action_dimensions[folder] = folder_action_dim
