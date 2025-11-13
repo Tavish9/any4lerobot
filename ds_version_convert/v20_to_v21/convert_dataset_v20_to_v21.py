@@ -1,10 +1,11 @@
 import argparse
 
-from convert_stats import check_aggregate_stats, convert_stats
+from .convert_stats import check_aggregate_stats, convert_stats
 from huggingface_hub import HfApi
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
-from lerobot.datasets.utils import EPISODES_STATS_PATH, STATS_PATH, load_stats, write_info
-from lerobot.datasets.v21.convert_dataset_v20_to_v21 import V20, V21
+from lerobot.datasets.utils import LEGACY_EPISODES_STATS_PATH, STATS_PATH, load_stats, write_info
+V20 = "v2.0"
+V21 = "v2.1"
 
 
 def convert_dataset(
@@ -20,8 +21,8 @@ def convert_dataset(
     else:
         dataset = LeRobotDataset(repo_id, revision=V20, force_cache_sync=True)
 
-    if (dataset.root / EPISODES_STATS_PATH).is_file():
-        (dataset.root / EPISODES_STATS_PATH).unlink()
+    if (dataset.root / LEGACY_EPISODES_STATS_PATH).is_file():
+        (dataset.root / LEGACY_EPISODES_STATS_PATH).unlink()
 
     convert_stats(dataset, num_workers=num_workers)
     ref_stats = load_stats(dataset.root)

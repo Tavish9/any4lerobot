@@ -35,6 +35,7 @@ python src/lerobot/datasets/v30/convert_dataset_v21_to_v30.py \
 
 import argparse
 import logging
+import os
 import shutil
 from pathlib import Path
 from typing import Any
@@ -60,7 +61,6 @@ from lerobot.datasets.utils import (
     flatten_dict,
     get_parquet_file_size_in_mb,
     get_parquet_num_frames,
-    get_video_size_in_mb,
     load_info,
     update_chunk_file_indices,
     write_episodes,
@@ -289,7 +289,7 @@ def convert_videos_of_camera(root: Path, new_root: Path, video_key: str, video_f
     episodes_metadata = []
 
     for ep_path in tqdm.tqdm(ep_paths, desc=f"convert videos of {video_key}"):
-        ep_size_in_mb = get_video_size_in_mb(ep_path)
+        ep_size_in_mb = os.path.getsize(ep_path) / (1024**2)
         ep_duration_in_s = get_video_duration_in_s(ep_path)
 
         # Check if adding this episode would exceed the limit

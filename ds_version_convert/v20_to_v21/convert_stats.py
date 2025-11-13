@@ -1,9 +1,10 @@
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
+import jsonlines
 import numpy as np
 from lerobot.datasets.compute_stats import aggregate_stats, get_feature_stats, sample_indices
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
-from lerobot.datasets.utils import write_episode_stats
+from lerobot.datasets.utils import LEGACY_EPISODES_STATS_PATH
 from tqdm import tqdm
 
 
@@ -55,8 +56,7 @@ def convert_stats(dataset: LeRobotDataset, num_workers: int = 0):
             ep_stats, _ = convert_episode_stats(dataset, ep_idx)
             dataset.meta.episodes_stats[ep_idx] = ep_stats
 
-    for ep_idx in tqdm(range(total_episodes)):
-        write_episode_stats(ep_idx, dataset.meta.episodes_stats[ep_idx], dataset.root)
+    _write_episode_stats_file(dataset)
 
 
 def check_aggregate_stats(
@@ -79,3 +79,26 @@ def check_aggregate_stats(
             if key in reference_stats and stat in reference_stats[key]:
                 err_msg = f"feature='{key}' stats='{stat}'"
                 np.testing.assert_allclose(val, reference_stats[key][stat], rtol=rtol, atol=atol, err_msg=err_msg)
+
+
+def _serialize_stats(stats: dict) -> dict:
+    def convert(value):
+        if isinstance(value, np.ndarray):
+            return value.tolist()
+        elif isinstance(value, (np.generic,)):
+            return value.item()
+        elif isinstance(value, dict):
+            return {k: convert(v) for k, v in value.items()}
+        else:
+            return value
+
+    return {k: convert(v) for k, v in stats.items()}
+
+
+def _write_episode_stats_file(dataset: LeRobotDataset) -> None:
+    path = dataset.root / LEGACY_EPISODES_STATS_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with jsonlines.open(path, mode="w") as writer:
+        for ep_idx in range(dataset.meta.total_episodes):
+            stats = dataset.meta.episodes_stats[ep_idx]
+            writer.write({"episode_index": ep_idx, "stats": _serialize_stats(stats)})
