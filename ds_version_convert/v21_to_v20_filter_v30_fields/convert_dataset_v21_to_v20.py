@@ -154,6 +154,9 @@ def _format_stats_for_v20(aggregated_stats: dict[str, dict[str, Any]]) -> dict[s
 
 
 def _prepare_dataset_root(repo_id: str, output_dir: str) -> Path:
+    if ".." in repo_id or repo_id.startswith("/"):
+        raise ValueError(f"Invalid repo_id: path traversal detected in '{repo_id}'")
+
     output_path = Path(output_dir).expanduser().resolve()
     output_path.mkdir(parents=True, exist_ok=True)
 

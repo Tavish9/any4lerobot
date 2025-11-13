@@ -33,8 +33,6 @@ import pyarrow.parquet as pq
 import tqdm
 from huggingface_hub import snapshot_download
 
-if __package__ is None or __package__ == "":
-    sys.path.append(str(Path(__file__).resolve().parents[3]))
 from lerobot.datasets.utils import (
     DEFAULT_CHUNK_SIZE,
     DEFAULT_DATA_PATH,
@@ -439,6 +437,8 @@ def convert_dataset(
     root: str | Path | None = None,
     force_conversion: bool = False,
 ) -> None:
+    if ".." in repo_id or repo_id.startswith("/"):
+        raise ValueError(f"Invalid repo_id: path traversal detected in '{repo_id}'")
     root = HF_LEROBOT_HOME / repo_id if root is None else Path(root) / repo_id
 
     if root.exists() and force_conversion:
