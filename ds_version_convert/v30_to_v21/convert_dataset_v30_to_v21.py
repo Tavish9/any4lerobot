@@ -11,7 +11,7 @@ Convert a dataset that already exists locally::
 
     python src/lerobot/datasets/v30/convert_dataset_v30_to_v21.py \
         --repo-id=lerobot/pusht \
-        --root=/path/to/datasets
+        --output-path=/path/to/datasets
 
 """
 
@@ -426,33 +426,35 @@ def copy_ancillary_directories(root: Path, new_root: Path) -> None:
 
 def convert_dataset(
     repo_id: str,
-    root: str | Path | None = None,
+    output_path: str | Path | None = None,
     force_conversion: bool = False,
 ) -> None:
     if ".." in repo_id or repo_id.startswith("/"):
         raise ValueError(f"Invalid repo_id: path traversal detected in '{repo_id}'")
-    root = HF_LEROBOT_HOME / repo_id if root is None else Path(root) / repo_id
+    output_path = (
+        HF_LEROBOT_HOME / repo_id if output_path is None else Path(output_path) / repo_id
+    )
 
-    if root.exists() and force_conversion:
-        logging.info("--force-conversion enabled: removing existing snapshot at %s", root)
-        shutil.rmtree(root)
+    if output_path.exists() and force_conversion:
+        logging.info("--force-conversion enabled: removing existing snapshot at %s", output_path)
+        shutil.rmtree(output_path)
 
-    if root.exists():
-        validate_local_dataset_version(root)
-        logging.info("Using existing local dataset at %s", root)
+    if output_path.exists():
+        validate_local_dataset_version(output_path)
+        logging.info("Using existing local dataset at %s", output_path)
     else:
         logging.info("Downloading dataset snapshot from the Hub")
-        snapshot_download(repo_id, repo_type="dataset", local_dir=root)
+        snapshot_download(repo_id, repo_type="dataset", local_dir=output_path)
 
-    episode_records = load_episode_records(root)
+    episode_records = load_episode_records(output_path)
     video_keys = [
         key
-        for key, ft in load_info(root)["features"].items()
+        for key, ft in load_info(output_path)["features"].items()
         if ft.get("dtype") == "video"
     ]
 
-    backup_root = root.parent / f"{root.name}_{V30}"
-    new_root = root.parent / f"{root.name}_{V21}"
+    backup_root = output_path.parent / f"{output_path.name}_{V30}"
+    new_root = output_path.parent / f"{output_path.name}_{V21}"
 
     if backup_root.is_dir():
         shutil.rmtree(backup_root)
@@ -461,15 +463,15 @@ def convert_dataset(
 
     new_root.mkdir(parents=True, exist_ok=True)
 
-    convert_info(root, new_root, episode_records, video_keys)
-    convert_tasks(root, new_root)
-    convert_data(root, new_root, episode_records)
-    convert_videos(root, new_root, episode_records, video_keys)
+    convert_info(output_path, new_root, episode_records, video_keys)
+    convert_tasks(output_path, new_root)
+    convert_data(output_path, new_root, episode_records)
+    convert_videos(output_path, new_root, episode_records, video_keys)
     convert_episodes_metadata(new_root, episode_records)
-    copy_ancillary_directories(root, new_root)
+    copy_ancillary_directories(output_path, new_root)
 
-    shutil.move(str(root), str(backup_root))
-    shutil.move(str(new_root), str(root))
+    shutil.move(str(output_path), str(backup_root))
+    shutil.move(str(new_root), str(output_path))
 
 
 def parse_args() -> argparse.Namespace:
@@ -481,10 +483,10 @@ def parse_args() -> argparse.Namespace:
         help="Repository identifier on Hugging Face (e.g. `lerobot/pusht`).",
     )
     parser.add_argument(
-        "--root",
+        "--output-path",
         type=str,
         default=None,
-        help="Local directory under which the dataset should be stored.",
+        help="Directory under which the converted dataset should be stored.",
     )
     parser.add_argument(
         "--force-conversion",
