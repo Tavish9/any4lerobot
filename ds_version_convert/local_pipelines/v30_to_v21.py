@@ -11,7 +11,6 @@ from ..v30_to_v21.convert_dataset_v30_to_v21 import (
     convert_tasks,
     convert_videos,
     copy_ancillary_directories,
-    copy_global_stats,
     load_episode_records,
 )
 from .utils import ensure_destination
@@ -37,7 +36,6 @@ def convert_v30_to_v21_local(
     video_keys = _list_video_keys(source_root)
 
     convert_info(source_root, dest_root, episode_records, video_keys)
-    copy_global_stats(source_root, dest_root)
     convert_tasks(source_root, dest_root)
     convert_data(source_root, dest_root, episode_records)
     convert_videos(source_root, dest_root, episode_records, video_keys)
