@@ -417,14 +417,6 @@ def convert_episodes_metadata(new_root: Path, episode_records: list[dict[str, An
             )
 
 
-def copy_global_stats(root: Path, new_root: Path) -> None:
-    source_stats = root / "meta" / "stats.json"
-    if source_stats.exists():
-        target_stats = new_root / "meta" / "stats.json"
-        target_stats.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_stats, target_stats)
-
-
 def copy_ancillary_directories(root: Path, new_root: Path) -> None:
     for subdir in ["images"]:
         source = root / subdir
@@ -470,7 +462,6 @@ def convert_dataset(
     new_root.mkdir(parents=True, exist_ok=True)
 
     convert_info(root, new_root, episode_records, video_keys)
-    copy_global_stats(root, new_root)
     convert_tasks(root, new_root)
     convert_data(root, new_root, episode_records)
     convert_videos(root, new_root, episode_records, video_keys)
