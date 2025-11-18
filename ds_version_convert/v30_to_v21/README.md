@@ -1,5 +1,7 @@
 # LeRobot Dataset v30 to v21
 
+The script download the original dataset from HuggingFace data repo, and writes the new data to the --output-path.
+
 ## Get started
 
 1. Install v3.0 lerobot
@@ -10,9 +12,9 @@
 
 2. Run the converter:
     ```bash
-    python src/lerobot/datasets/v30/convert_dataset_v30_to_v21.py \
+    python ds_version_convert/v30_to_v21/convert_dataset_v30_to_v21.py \
         --repo-id=your_id \
-        --root=./test_data
+        --output-path=./test_data
     ```
 
-- Optional: omit `--root` to rely on the default cache (`$HF_LEROBOT_HOME`), and add `--force-conversion` if you need to discard an existing snapshot and download a fresh copy.
+- Optional: omit `--output-path` to rely on the default cache (`$HF_LEROBOT_HOME`), and add `--force-conversion` if you need to discard an existing snapshot and download a fresh copy.
