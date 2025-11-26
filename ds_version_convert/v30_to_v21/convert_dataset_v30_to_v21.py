@@ -56,6 +56,7 @@ V30 = "v3.0"
 LEGACY_DATA_PATH_TEMPLATE = "data/chunk-{chunk_index:03d}/episode_{episode_index:06d}.parquet"
 LEGACY_VIDEO_PATH_TEMPLATE = "videos/chunk-{chunk_index:03d}/{video_key}/episode_{episode_index:06d}.mp4"
 MIN_VIDEO_DURATION = 1e-6
+LEGACY_STATS_KEYS = ("mean", "std", "min", "max", "q01", "q99")
 
 def _to_serializable(value: Any) -> Any:
     """Convert numpy/pyarrow values into standard Python types for JSON dumps."""
@@ -389,6 +390,18 @@ def convert_episodes_metadata(new_root: Path, episode_records: list[dict[str, An
     stats_path = new_root / LEGACY_EPISODES_STATS_PATH
     episodes_path.parent.mkdir(parents=True, exist_ok=True)
 
+    def _filter_stats(stats: dict[str, Any]) -> dict[str, Any]:
+        """Remove v3-only statistics keys so output matches the v2.1 schema."""
+
+        filtered: dict[str, Any] = {}
+        for feature, values in stats.items():
+            if not isinstance(values, dict):
+                continue
+            keep = {k: v for k, v in values.items() if k in LEGACY_STATS_KEYS}
+            if keep:
+                filtered[feature] = keep
+        return filtered
+
     with jsonlines.open(episodes_path, mode="w") as episodes_writer, jsonlines.open(
         stats_path, mode="w"
     ) as stats_writer:
@@ -408,7 +421,7 @@ def convert_episodes_metadata(new_root: Path, episode_records: list[dict[str, An
 
             stats_flat = {key: record[key] for key in record if key.startswith("stats/")}
             stats_nested = unflatten_dict(stats_flat).get("stats", {})
-            stats_serialized = serialize_dict(stats_nested)
+            stats_serialized = serialize_dict(_filter_stats(stats_nested))
             stats_writer.write(
                 {
                     "episode_index": int(record["episode_index"]),
