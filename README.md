@@ -60,7 +60,7 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
   - [x] [LeRobotv2.0 to LeRobotv2.1](./ds_version_convert/v20_to_v21/README.md)
   - [x] [LeRobotv2.1 to LeRobotv2.0](./ds_version_convert/v21_to_v20/README.md)
   - [x] [LeRobotv2.1 to LeRobotv3.0](./ds_version_convert/v21_to_v30/README.md)
-  - [ ] LeRobotv3.0 to LeRobotv2.1
+  - [x] [LeRobotv3.0 to LeRobotv2.1](./ds_version_convert/v30_to_v21/README.md)
 
 - [**Want more features?**](https://github.com/Tavish9/any4lerobot/issues/new?template=feature-request.yml)
 
