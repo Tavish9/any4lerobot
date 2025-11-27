@@ -9,9 +9,9 @@ Usage examples
 
 Convert a dataset that already exists locally::
 
-    python src/lerobot/datasets/v30/convert_dataset_v30_to_v21.py \
+    python convert_dataset_v30_to_v21.py \
         --repo-id=lerobot/pusht \
-        --output-path=/path/to/datasets
+        --root=/path/to/dataset
 
 """
 
@@ -32,7 +32,6 @@ import numpy as np
 import pyarrow.parquet as pq
 import tqdm
 from huggingface_hub import snapshot_download
-
 from lerobot.datasets.utils import (
     DEFAULT_CHUNK_SIZE,
     DEFAULT_DATA_PATH,
@@ -57,6 +56,7 @@ LEGACY_DATA_PATH_TEMPLATE = "data/chunk-{chunk_index:03d}/episode_{episode_index
 LEGACY_VIDEO_PATH_TEMPLATE = "videos/chunk-{chunk_index:03d}/{video_key}/episode_{episode_index:06d}.mp4"
 MIN_VIDEO_DURATION = 1e-6
 LEGACY_STATS_KEYS = ("mean", "std", "min", "max", "q01", "q99")
+
 
 def _to_serializable(value: Any) -> Any:
     """Convert numpy/pyarrow values into standard Python types for JSON dumps."""
@@ -109,10 +109,12 @@ def convert_tasks(root: Path, new_root: Path) -> None:
 
     with jsonlines.open(out_path, mode="w") as writer:
         for task, row in tasks.iterrows():
-            writer.write({
-                "task_index": int(row["task_index"]),
-                "task": _to_serializable(task),
-            })
+            writer.write(
+                {
+                    "task_index": int(row["task_index"]),
+                    "task": _to_serializable(task),
+                }
+            )
 
 
 def convert_info(
@@ -221,44 +223,44 @@ def _group_episodes_by_video_file(
 
 def _validate_video_paths(src: Path, dst: Path) -> None:
     """Validate source and destination paths to prevent security issues."""
-    
+
     # Convert to Path objects if they aren't already
     src = Path(src)
     dst = Path(dst)
-    
+
     # Resolve paths to handle symlinks and normalize them
     try:
         src_resolved = src.resolve()
         dst_resolved = dst.resolve()
     except OSError as exc:
         raise ValueError(f"Invalid path provided: {exc}") from exc
-    
+
     # Check that source file exists and is a regular file
     if not src_resolved.exists():
         raise FileNotFoundError(f"Source video file does not exist: {src_resolved}")
-    
+
     if not src_resolved.is_file():
         raise ValueError(f"Source path is not a regular file: {src_resolved}")
-    
+
     # Validate file extensions for video files
     valid_video_extensions = {".mp4", ".avi", ".mov", ".mkv", ".webm", ".m4v"}
     if src_resolved.suffix.lower() not in valid_video_extensions:
         raise ValueError(f"Source file does not have a valid video extension: {src_resolved}")
-    
+
     if dst_resolved.suffix.lower() not in valid_video_extensions:
         raise ValueError(f"Destination file does not have a valid video extension: {dst_resolved}")
-    
+
     # Check for path traversal attempts in the original paths
     src_str = str(src)
     dst_str = str(dst)
-    
+
     # Ensure paths don't contain null bytes or other control characters
     for path_str, name in [(src_str, "source"), (dst_str, "destination")]:
         if "\0" in path_str:
             raise ValueError(f"Path contains null bytes: {name} path")
         if any(ord(c) < 32 and c not in ["\t", "\n", "\r"] for c in path_str):
             raise ValueError(f"Path contains invalid control characters: {name} path")
-    
+
     # Additional check: ensure resolved paths don't point to system directories
     system_dirs = {"/etc", "/sys", "/proc", "/dev", "/boot", "/root"}
     for resolved_path, name in [(src_resolved, "source"), (dst_resolved, "destination")]:
@@ -266,7 +268,7 @@ def _validate_video_paths(src: Path, dst: Path) -> None:
         for sys_dir in system_dirs:
             if path_str.startswith(sys_dir + "/") or path_str == sys_dir:
                 raise ValueError(f"Path points to system directory: {name} path {resolved_path}")
-    
+
     # Ensure the destination directory can be created safely
     try:
         dst_parent = dst_resolved.parent
@@ -285,7 +287,7 @@ def _extract_video_segment(
 ) -> None:
     # Validate paths to prevent security issues
     _validate_video_paths(src, dst)
-    
+
     # Validate numeric parameters to prevent injection
     if not (0 <= start <= 86400):  # 24 hours max
         raise ValueError(f"Invalid start time: {start}")
@@ -293,13 +295,13 @@ def _extract_video_segment(
         raise ValueError(f"Invalid end time: {end}")
     if start >= end:
         raise ValueError(f"Start time {start} must be less than end time {end}")
-    
+
     duration = max(end - start, MIN_VIDEO_DURATION)
-    
+
     # Validate duration is reasonable
     if duration > 3600:  # 1 hour max
         raise ValueError(f"Video segment duration too long: {duration} seconds")
-    
+
     dst.parent.mkdir(parents=True, exist_ok=True)
 
     # Build command with validated parameters
@@ -307,7 +309,7 @@ def _extract_video_segment(
         "ffmpeg",
         "-hide_banner",
         "-loglevel",
-        "error",
+        "debug",
         "-ss",
         f"{start:.6f}",
         "-i",
@@ -325,11 +327,11 @@ def _extract_video_segment(
     try:
         # Use more secure subprocess call with explicit timeout
         result = subprocess.run(
-            cmd, 
-            check=True, 
+            cmd,
+            check=True,
             timeout=300,  # 5 minute timeout
-            capture_output=True, 
-            text=True
+            capture_output=True,
+            text=True,
         )
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(f"ffmpeg timed out while processing video '{src}' -> '{dst}'") from exc
@@ -355,9 +357,7 @@ def convert_videos(root: Path, new_root: Path, episode_records: list[dict[str, A
             logging.info("No video metadata found for key '%s'; skipping", video_key)
             continue
 
-        for (chunk_idx, file_idx), records in tqdm.tqdm(
-            grouped.items(), desc=f"convert videos ({video_key})"
-        ):
+        for (chunk_idx, file_idx), records in tqdm.tqdm(grouped.items(), desc=f"convert videos ({video_key})"):
             src_path = root / DEFAULT_VIDEO_PATH.format(
                 video_key=video_key,
                 chunk_index=chunk_idx,
@@ -402,9 +402,10 @@ def convert_episodes_metadata(new_root: Path, episode_records: list[dict[str, An
                 filtered[feature] = keep
         return filtered
 
-    with jsonlines.open(episodes_path, mode="w") as episodes_writer, jsonlines.open(
-        stats_path, mode="w"
-    ) as stats_writer:
+    with (
+        jsonlines.open(episodes_path, mode="w") as episodes_writer,
+        jsonlines.open(stats_path, mode="w") as stats_writer,
+    ):
         for record in sorted(episode_records, key=lambda rec: int(rec["episode_index"])):
             legacy_episode = {
                 key: value
@@ -439,52 +440,40 @@ def copy_ancillary_directories(root: Path, new_root: Path) -> None:
 
 def convert_dataset(
     repo_id: str,
-    output_path: str | Path | None = None,
-    force_conversion: bool = False,
+    root: str | Path | None = None,
 ) -> None:
-    if ".." in repo_id or repo_id.startswith("/"):
-        raise ValueError(f"Invalid repo_id: path traversal detected in '{repo_id}'")
-    output_path = (
-        HF_LEROBOT_HOME / repo_id if output_path is None else Path(output_path) / repo_id
-    )
+    root = HF_LEROBOT_HOME / repo_id if root is None else Path(root)
 
-    if output_path.exists() and force_conversion:
-        logging.info("--force-conversion enabled: removing existing snapshot at %s", output_path)
-        shutil.rmtree(output_path)
+    if not root.exists():
+        snapshot_download(
+            repo_id,
+            repo_type="dataset",
+            revision=V30,
+            local_dir=root,
+        )
 
-    if output_path.exists():
-        validate_local_dataset_version(output_path)
-        logging.info("Using existing local dataset at %s", output_path)
-    else:
-        logging.info("Downloading dataset snapshot from the Hub")
-        snapshot_download(repo_id, repo_type="dataset", local_dir=output_path)
+    old_root = root.parent / f"{root.name}_{V30}"
+    new_root = root.parent / f"{root.name}_{V21}"
 
-    episode_records = load_episode_records(output_path)
-    video_keys = [
-        key
-        for key, ft in load_info(output_path)["features"].items()
-        if ft.get("dtype") == "video"
-    ]
-
-    backup_root = output_path.parent / f"{output_path.name}_{V30}"
-    new_root = output_path.parent / f"{output_path.name}_{V21}"
-
-    if backup_root.is_dir():
-        shutil.rmtree(backup_root)
+    if old_root.is_dir():
+        shutil.rmtree(old_root)
     if new_root.is_dir():
         shutil.rmtree(new_root)
 
     new_root.mkdir(parents=True, exist_ok=True)
 
-    convert_info(output_path, new_root, episode_records, video_keys)
-    convert_tasks(output_path, new_root)
-    convert_data(output_path, new_root, episode_records)
-    convert_videos(output_path, new_root, episode_records, video_keys)
-    convert_episodes_metadata(new_root, episode_records)
-    copy_ancillary_directories(output_path, new_root)
+    episode_records = load_episode_records(root)
+    video_keys = [key for key, ft in load_info(root)["features"].items() if ft.get("dtype") == "video"]
 
-    shutil.move(str(output_path), str(backup_root))
-    shutil.move(str(new_root), str(output_path))
+    convert_info(root, new_root, episode_records, video_keys)
+    convert_tasks(root, new_root)
+    convert_data(root, new_root, episode_records)
+    convert_videos(root, new_root, episode_records, video_keys)
+    convert_episodes_metadata(new_root, episode_records)
+    copy_ancillary_directories(root, new_root)
+
+    shutil.move(str(root), str(old_root))
+    shutil.move(str(new_root), str(root))
 
 
 def parse_args() -> argparse.Namespace:
@@ -496,15 +485,10 @@ def parse_args() -> argparse.Namespace:
         help="Repository identifier on Hugging Face (e.g. `lerobot/pusht`).",
     )
     parser.add_argument(
-        "--output-path",
+        "--root",
         type=str,
         default=None,
-        help="Directory under which the converted dataset should be stored.",
-    )
-    parser.add_argument(
-        "--force-conversion",
-        action="store_true",
-        help="Ignore any existing local snapshot and re-download it from the Hub.",
+        help="Path to the local dataset root directory. If not provided, the script will use the dataset from local.",
     )
     return parser.parse_args()
 
