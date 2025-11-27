@@ -72,16 +72,6 @@ def _to_serializable(value: Any) -> Any:
     return value
 
 
-def validate_local_dataset_version(local_path: Path) -> None:
-    info = load_info(local_path)
-    dataset_version = info.get("codebase_version", "unknown")
-    if dataset_version != V30:
-        raise ValueError(
-            f"Local dataset has codebase version '{dataset_version}', expected '{V30}'. "
-            f"This script converts datasets from v3.0 back to v2.1."
-        )
-
-
 def load_episode_records(root: Path) -> list[dict[str, Any]]:
     """Load the consolidated metadata rows stored in ``meta/episodes``."""
 
