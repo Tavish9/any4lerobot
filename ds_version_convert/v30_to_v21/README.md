@@ -2,7 +2,15 @@
 
 ## Get started
 
-1. Install v3.0 lerobot
+1. Downgrade datasets:
+
+   ```bash
+   pip install "datasets<4.0.0"
+   ```
+
+   > Need to downgrade datasets first since `4.0.0` introduces `List` and `Column`.
+
+2. Install v3.0 lerobot
 
    ```bash
    git clone https://github.com/huggingface/lerobot.git
