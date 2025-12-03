@@ -22,7 +22,6 @@ import logging
 import math
 import shutil
 import subprocess
-import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Iterable
@@ -31,6 +30,7 @@ import jsonlines
 import numpy as np
 import pyarrow.parquet as pq
 import tqdm
+from datasets import Dataset
 from huggingface_hub import snapshot_download
 from lerobot.datasets.utils import (
     DEFAULT_CHUNK_SIZE,
@@ -52,10 +52,10 @@ from lerobot.utils.utils import init_logging
 V21 = "v2.1"
 V30 = "v3.0"
 
-LEGACY_DATA_PATH_TEMPLATE = "data/chunk-{chunk_index:03d}/episode_{episode_index:06d}.parquet"
-LEGACY_VIDEO_PATH_TEMPLATE = "videos/chunk-{chunk_index:03d}/{video_key}/episode_{episode_index:06d}.mp4"
+LEGACY_DATA_PATH_TEMPLATE = "data/chunk-{episode_chunk:03d}/episode_{episode_index:06d}.parquet"
+LEGACY_VIDEO_PATH_TEMPLATE = "videos/chunk-{episode_chunk:03d}/{video_key}/episode_{episode_index:06d}.mp4"
 MIN_VIDEO_DURATION = 1e-6
-LEGACY_STATS_KEYS = ("mean", "std", "min", "max", "q01", "q99")
+LEGACY_STATS_KEYS = ("mean", "std", "min", "max", "count")
 
 
 def _to_serializable(value: Any) -> Any:
@@ -181,15 +181,15 @@ def convert_data(root: Path, new_root: Path, episode_records: list[dict[str, Any
                     f"episode_index={episode_index}, length={length}"
                 )
 
-            episode_table = table.slice(start, length)
+            episode_table = table.slice(start, length).to_pandas()
 
             dest_chunk = episode_index // DEFAULT_CHUNK_SIZE
             dest_path = new_root / LEGACY_DATA_PATH_TEMPLATE.format(
-                chunk_index=dest_chunk,
+                episode_chunk=dest_chunk,
                 episode_index=episode_index,
             )
             dest_path.parent.mkdir(parents=True, exist_ok=True)
-            pq.write_table(episode_table, dest_path)
+            Dataset.from_pandas(episode_table).to_parquet(dest_path)
 
 
 def _group_episodes_by_video_file(
@@ -365,7 +365,7 @@ def convert_videos(root: Path, new_root: Path, episode_records: list[dict[str, A
 
                 dest_chunk = episode_index // DEFAULT_CHUNK_SIZE
                 dest_path = new_root / LEGACY_VIDEO_PATH_TEMPLATE.format(
-                    chunk_index=dest_chunk,
+                    episode_chunk=dest_chunk,
                     video_key=video_key,
                     episode_index=episode_index,
                 )
