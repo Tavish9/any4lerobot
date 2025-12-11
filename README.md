@@ -84,6 +84,8 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
 - [weijian-sun/agibotworld-lerobot](https://huggingface.co/datasets/weijian-sun/agibotworld-lerobot): AgibotWorld-LeRobot v2.0
 - [GR00T-Dateset](https://huggingface.co/GR00T-Dateset): Isaac-GR00T training dataset
 - [nvidia/PhysicalAI-Robotics-GR00T-X-Embodiment-Sim](https://huggingface.co/datasets/nvidia/PhysicalAI-Robotics-GR00T-X-Embodiment-Sim): Isaac-GR00T training dataset
+- [RoboCOIN/robocoin](https://huggingface.co/collections/RoboCOIN/robocoin): An open-source bimanual robot manipulation dataset
+- [behavior-1k/2025-challenge-demos](https://huggingface.co/datasets/behavior-1k/2025-challenge-demos): BEHAVIOR Challenge dataset
 
 ### Embodiment Extensions
 
@@ -97,6 +99,7 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
 - [LeFranX](https://github.com/wengmister/LeFranX): Franka and XHand Extension for LeRobot [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/wengmister/LeFranX">](https://github.com/wengmister/LeFranX)
 - [U-Arm](https://github.com/MINT-SJTU/LeRobot-Anything-U-Arm): Lerobot-Everything-Cross-Embodiment-Teleoperation [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/MINT-SJTU/LeRobot-Anything-U-Arm">](https://github.com/MINT-SJTU/LeRobot-Anything-U-Arm)
 - [lerobot-robot-xarm](https://github.com/SpesRobotics/lerobot-robot-xarm): xArm integration for LeRobot [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/SpesRobotics/lerobot-robot-xarm">](https://github.com/SpesRobotics/lerobot-robot-xarm)
+- [DoRobot](https://github.com/dora-rs/DoRobot): Lerobot run in Dora [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/dora-rs/DoRobot">](https://github.com/dora-rs/DoRobot)
 
 ### Hardware
 
@@ -110,6 +113,7 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
 
 - [Official Docs](https://huggingface.co/docs/lerobot/en/getting_started_real_world_robot): This tutorial will explain how to train a neural network to control a real robot autonomously.
 - [YouTube: LeRobot Tutorials](https://www.youtube.com/playlist?list=PLo2EIpI_JMQu5zrDHe4NchRyumF2ynaUN)
+- [Robotics Course](https://github.com/huggingface/robotics-course): A course on robotics by Hugging Face using LeRobot [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/huggingface/robotics-course">](https://github.com/huggingface/robotics-course)
 - [LeRobot Tutorial with MuJoCo](https://github.com/jeongeun980906/lerobot-mujoco-tutorial): Examples for collecting data and training with MuJoCo [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/jeongeun980906/lerobot-mujoco-tutorial">](https://github.com/jeongeun980906/lerobot-mujoco-tutorial)
 - [LeRobot Sim2Real](https://github.com/StoneT2000/lerobot-sim2real): Train in fast simulation and deploy visual policies zero shot to the real world [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/StoneT2000/lerobot-sim2real">](https://github.com/StoneT2000/lerobot-sim2real)
 - [lerobot-hilserl-guide](https://github.com/michel-aractingi/lerobot-hilserl-guide): Guide and tutorial to run the HILSerl implementation of LeRobot [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/michel-aractingi/lerobot-hilserl-guide">](https://github.com/michel-aractingi/lerobot-hilserl-guide)
@@ -126,6 +130,8 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
 - [LERO](https://github.com/masato-ka/lero): LeRobot dataset operations toolkit [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/masato-ka/lero">](https://github.com/masato-ka/lero)
 - [LeRobot Dataset Visualizer](https://github.com/huggingface/lerobot-dataset-visualizer): Web application for visualizing robotics datasets in LeRobot format [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/huggingface/lerobot-dataset-visualizer">](https://github.com/huggingface/lerobot-dataset-visualizer)
 - [lerobot_so101_teleop](https://github.com/liorbenhorin/lerobot_so101_teleop): Sample Environment for the LeRobot SO-101 Robot in Isaac Lab to collect demonstrations in a simulation [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/liorbenhorin/lerobot_so101_teleop">](https://github.com/liorbenhorin/lerobot_so101_teleop)
+- [Robot Learning: A Tutorial](https://github.com/fracapuano/robot-learning-tutorial): All the source code for "Robot Learning: A Tutorial". Get involved to be featured in the next iteration [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/fracapuano/robot-learning-tutorial">](https://github.com/fracapuano/robot-learning-tutorial)
+- [LERO](https://github.com/masato-ka/lero): LeRobot dataset Operations toolkit [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/masato-ka/lero">](https://github.com/masato-ka/lero)
 
 ## 👷‍♂️ Contributing
 
