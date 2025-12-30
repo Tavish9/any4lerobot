@@ -133,6 +133,8 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
 - [lerobot_so101_teleop](https://github.com/liorbenhorin/lerobot_so101_teleop): Sample Environment for the LeRobot SO-101 Robot in Isaac Lab to collect demonstrations in a simulation [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/liorbenhorin/lerobot_so101_teleop">](https://github.com/liorbenhorin/lerobot_so101_teleop)
 - [Robot Learning: A Tutorial](https://github.com/fracapuano/robot-learning-tutorial): All the source code for "Robot Learning: A Tutorial". Get involved to be featured in the next iteration [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/fracapuano/robot-learning-tutorial">](https://github.com/fracapuano/robot-learning-tutorial)
 - [LERO](https://github.com/masato-ka/lero): LeRobot dataset Operations toolkit [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/masato-ka/lero">](https://github.com/masato-ka/lero)
+- [CRISP](https://utiasdsl.github.io/crisp_controllers/): ros2_controllers and python interface to record and deploy policies using LeRobot and ROS2  (Franka Robotics FR3 and more supported) [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/utiasdsl/crisp_controllers">](https://github.com/utiasdsl/crisp_controllers)
+
 
 ## 👷‍♂️ Contributing
 
