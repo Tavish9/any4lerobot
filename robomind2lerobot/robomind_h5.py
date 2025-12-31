@@ -100,7 +100,15 @@ class RoboMINDDataset(LeRobotDataset):
         obj.image_transforms = None
         obj.delta_timestamps = None
         obj.delta_indices = None
+        obj._absolute_to_relative_idx = None
         obj.video_backend = video_backend if video_backend is not None else get_safe_default_codec()
+        obj.writer = None
+        obj.latest_episode = None
+        obj._current_file_start_frame = None
+        # Initialize tracking for incremental recording
+        obj._lazy_loading = False
+        obj._recorded_frames = 0
+        obj._writer_closed_for_reading = False
         return obj
 
     def save_episode(self, split, action_config: dict, episode_data: dict | None = None) -> None:
