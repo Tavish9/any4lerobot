@@ -15,7 +15,7 @@ Dataset Structure of `meta/info.json`:
 
 ```json
 {
-  "codebase_version": "v2.1", // lastest lerobot format
+  "codebase_version": "v3.0", // lastest lerobot format
   "robot_type": "franka", // specific robot type, unknown if not provided
   "fps": 3, // control frequency, 10 if not provided
   // will add an additional key "control_frequency"
@@ -69,20 +69,6 @@ Dataset Structure of `meta/info.json`:
 
 
 ## Get started
-
-> [!IMPORTANT]  
-> 1.for `bc_z` dataset, modify `encode_video_frames()` in `src/lerobot/datasets/video_utils.py`.
-> 
-> ```python
-> # add the following content to line 141:
-> vf: str = "pad=ceil(iw/2)*2:ceil(ih/2)*2",
-> # Add the following content to line 171:
-> ffmpeg_args["-vf"] = vf
-> ```
-
-> [!TIP]
-> We recommend using `libsvtav1` as the vcodec for ffmpeg when encoding videos during dataset conversion. If you can't use libsvtav1 after installing lerobot, you need to compile it yourself. Follow this [link](https://trac.ffmpeg.org/wiki/CompilationGuide) for detailed compilation instructions.
-
 
 1. Download source code:
 

@@ -41,7 +41,7 @@ Dataset Structure of `meta/info.json`:
 
 ```json
 {
-  "codebase_version": "v2.1", // lastest lerobot format
+  "codebase_version": "v3.0", // lastest lerobot format
   "robot_type": "franka_3rgb", // specific robot type
   "fps": 30, // control frequency
   "features": {
