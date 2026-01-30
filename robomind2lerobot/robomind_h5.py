@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import ray
 from lerobot.datasets.compute_stats import aggregate_stats
-from lerobot.datasets.lerobot_dataset import LeRobotDataset, LeRobotDatasetMetadata
+from lerobot.datasets.lerobot_dataset import VALID_VIDEO_CODECS, LeRobotDataset, LeRobotDatasetMetadata
 from lerobot.datasets.utils import flatten_dict, validate_episode_buffer, write_info, write_stats
 from lerobot.datasets.video_utils import get_safe_default_codec
 from ray.runtime_env import RuntimeEnv
@@ -70,8 +70,11 @@ class RoboMINDDataset(LeRobotDataset):
         image_writer_threads: int = 0,
         video_backend: str | None = None,
         batch_encoding_size: int = 1,
+        vcodec: str = "libsvtav1",
     ) -> "LeRobotDataset":
         """Create a LeRobot Dataset from scratch in order to record data."""
+        if vcodec not in VALID_VIDEO_CODECS:
+            raise ValueError(f"Invalid vcodec '{vcodec}'. Must be one of: {sorted(VALID_VIDEO_CODECS)}")
         obj = cls.__new__(cls)
         obj.meta = RoboMINDDatasetMetadata.create(
             repo_id=repo_id,
@@ -88,6 +91,7 @@ class RoboMINDDataset(LeRobotDataset):
         obj.image_writer = None
         obj.batch_encoding_size = batch_encoding_size
         obj.episodes_since_last_encoding = 0
+        obj.vcodec = vcodec
 
         if image_writer_processes or image_writer_threads:
             obj.start_image_writer(image_writer_processes, image_writer_threads)
