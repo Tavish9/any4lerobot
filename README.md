@@ -50,7 +50,7 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
 
 - **Dataset Preprocess**:
 
-  - [x] [Dataset Merging](./dataset_merging/README.md)
+  - [ ] Dataset Merging
   - [ ] Dataset Filtering
   - [ ] Dataset Sampling
 
