@@ -36,6 +36,14 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
 
 ## ✨ Features
 
+- **Dataset Tutorial**:
+
+  - [ ] Dataset Loading
+  - [ ] Dataset Editing
+  - [ ] Dataset Filtering
+  - [ ] Dataset Sampling
+  - [ ] Dataset Merging
+
 - ​**​Data Conversion​**​:
 
   - [x] [Open X-Embodiment to LeRobot](./openx2lerobot/README.md)
@@ -44,16 +52,6 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
   - [x] [LeRobot to RLDS](./lerobot2rlds/README.md)
   - [x] [LIBERO to LeRobot](./libero2lerobot/README.md)
 
-- **Training**:
-
-  - [ ] MultiLeRobotDataset
-
-- **Dataset Preprocess**:
-
-  - [ ] Dataset Merging
-  - [ ] Dataset Filtering
-  - [ ] Dataset Sampling
-
 - ​[**Version Conversion​**​](./ds_version_convert/README.md):
 
   - [x] [LeRobotv1.6 to LeRobotv2.0](./ds_version_convert/v16_to_v20/README.md)
@@ -61,6 +59,10 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
   - [x] [LeRobotv2.1 to LeRobotv2.0](./ds_version_convert/v21_to_v20/README.md)
   - [x] [LeRobotv2.1 to LeRobotv3.0](./ds_version_convert/v21_to_v30/README.md)
   - [x] [LeRobotv3.0 to LeRobotv2.1](./ds_version_convert/v30_to_v21/README.md)
+
+- **Training**:
+
+  - [ ] MultiLeRobotDataset
 
 - [**Want more features?**](https://github.com/Tavish9/any4lerobot/issues/new?template=feature-request.yml)
 
