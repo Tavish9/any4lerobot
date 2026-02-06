@@ -99,7 +99,6 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
 - [LeFranX](https://github.com/wengmister/LeFranX): Franka and XHand Extension for LeRobot [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/wengmister/LeFranX">](https://github.com/wengmister/LeFranX)
 - [U-Arm](https://github.com/MINT-SJTU/LeRobot-Anything-U-Arm): Lerobot-Everything-Cross-Embodiment-Teleoperation [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/MINT-SJTU/LeRobot-Anything-U-Arm">](https://github.com/MINT-SJTU/LeRobot-Anything-U-Arm)
 - [lerobot-robot-xarm](https://github.com/SpesRobotics/lerobot-robot-xarm): xArm integration for LeRobot [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/SpesRobotics/lerobot-robot-xarm">](https://github.com/SpesRobotics/lerobot-robot-xarm)
-- [DoRobot](https://github.com/dora-rs/DoRobot): Lerobot run in Dora [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/dora-rs/DoRobot">](https://github.com/dora-rs/DoRobot)
 
 ### Hardware
 
@@ -121,7 +120,6 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
 - [LeRobotTutorial-CN](https://github.com/CSCSX/LeRobotTutorial-CN): a tutorial for LeRobot in Chinese [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/CSCSX/LeRobotTutorial-CN">](https://github.com/CSCSX/LeRobotTutorial-CN)
 - [PathOn.AI](https://learn-robotics.pathon.ai/): Learn Robotics at PathOn.AI is a platform for learning robotics and AI
 - [NVIDIA Jetson Tutorials](https://www.jetson-ai-lab.com/lerobot.html)
-- [lerobot-on-ascend](https://github.com/hexchip/lerobot-on-ascend): Tutorial of Deploying ACT on Huawei Ascend 310B [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/hexchip/lerobot-on-ascend">](https://github.com/hexchip/lerobot-on-ascend)
 - [lerobot_ws](https://github.com/Pavankv92/lerobot_ws): ROS 2 Package for LeRobot SO-ARM101 [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/Pavankv92/lerobot_ws">](https://github.com/Pavankv92/lerobot_ws)
 - [lerobot-ros](https://github.com/astroyat/lerobot-ros): Running LeRobot and ROS 2 on custom LIDAR [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/astroyat/lerobot-ros">](https://github.com/astroyat/lerobot-ros)
 - [Physical AI Tools](https://github.com/ROBOTIS-GIT/physical_ai_tools): Physical AI Development Interface with LeRobot and ROS 2 [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/ROBOTIS-GIT/physical_ai_tools">](https://github.com/ROBOTIS-GIT/physical_ai_tools)
@@ -135,31 +133,46 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
 - [LERO](https://github.com/masato-ka/lero): LeRobot dataset Operations toolkit [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/masato-ka/lero">](https://github.com/masato-ka/lero)
 - [CRISP](https://utiasdsl.github.io/crisp_controllers/): Record datasets and deploy policies using LeRobot and ROS2-compatible manipulators (Franka Robotics FR3 and more supported) [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/utiasdsl/crisp_controllers">](https://github.com/utiasdsl/crisp_controllers)
 
-
 ## 👷‍♂️ Contributing
 
-We appreciate all contributions to improving Any4LeRobot.
+We appreciate all contributions to improving Any4LeRobot!
 
 <a href="https://github.com/Tavish9/any4lerobot/graphs/contributors" target="_blank">
-  <table>
-    <tr>
-      <th colspan="2">
-        <br><img src="https://contrib.rocks/image?repo=tavish9/any4lerobot"><br><br>
-      </th>
-    </tr>
-  </table>
+  <img src="https://contrib.rocks/image?repo=tavish9/any4lerobot">
 </a>
 
-## 🤝 Acknowledgements
+## 📝 License
 
-Special thanks to the [LeRobot teams](https://github.com/huggingface/lerobot) for making this great framework.
+This project is released under the [MIT License](./LICENSE).
 
-Thanks to everyone for supporting this project.
+## 📖 Citation
+
+If you find this repository helpful in your research or projects, please consider citing it:
+
+```bibtex
+@misc{any4lerobot,
+  title        = {Any4LeRobot: A tool collection for LeRobot},
+  author       = {Qizhi Chen},
+  license      = {MIT},
+  url          = {https://github.com/Tavish9/any4lerobot},
+  year         = {2025},
+}
+
+@article{eo1,
+  title={EO-1: Interleaved Vision-Text-Action Pretraining for General Robot Control},
+  author={Delin Qu and Haoming Song and Qizhi Chen and Zhaoqing Chen and Xianqiang Gao and Xinyi Ye and Qi Lv and Modi Shi and Guanghui Ren and Cheng Ruan and Maoqing Yao and Haoran Yang and Jiacheng Bao and Bin Zhao and Dong Wang},
+  journal={arXiv preprint},
+  year={2025},
+  url={https://arxiv.org/abs/2508.21112}
+}
+```
+
+## ⭐ Star History
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://reporoster.com/stars/dark/Tavish9/any4lerobot" />
-  <source media="(prefers-color-scheme: light)" srcset="https://reporoster.com/stars/Tavish9/any4lerobot" />
-  <img alt="github-stargazers" src="https://github.com/Tavish9/any4lerobot/stargazers" />
+  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Tavish9/any4lerobot&type=Date&theme=dark" />
+  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Tavish9/any4lerobot&type=Date" />
+  <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Tavish9/any4lerobot&type=Date" />
 </picture>
 
-<p align="right"><a href="#top">🔝Back to top</a></p>
+<p align="right"><a href="#top">🔝 Back to top</a></p>
