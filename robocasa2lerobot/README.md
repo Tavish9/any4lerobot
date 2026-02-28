@@ -119,3 +119,7 @@ class Kitchen(ManipulationEnv, metaclass=KitchenEnvMeta):
 **Note**:
     - You can add more feature to your lerobot dataset such as extracted depth, segmentation mask, camera parameters which is retrieved from regenerate steps
     - This code convert hdf5 to lerobot v2.1 dataset. It may work well with `lerobot==0.1.0`
+
+## Example output datasets:
+- ROBOCASA 100 demos: https://huggingface.co/datasets/binhng/robocasa_merged_24_tasks_100demos_v1
+- ROBOCASA 30 demos: https://huggingface.co/datasets/binhng/robocasa_merged_24_tasks_30demos_v3
