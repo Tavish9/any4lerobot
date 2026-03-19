@@ -182,6 +182,8 @@ Dataset Structure of `meta/info.json`:
 > │   └── h5_ur_1rgb.json
 > └── RoboMIND_v1_2_instr.csv
 > ```
+>
+> 3. Due the format mismatch in simulation dataset, this script skips `simulation`, `sim_franka_3rgb`, `sim_tienkung_1rgb`.
 
 > [!NOTE]
 > The conversion speed of this script is limited by the performance of the physical machine running it, including **CPU cores and memory**. We recommend using **2 CPU cores per task** for optimal performance. However, each task requires approximately 10 GiB of memory. To avoid running out of memory, you may need to increase the number of CPU cores per task depending on your system’s available memory.
