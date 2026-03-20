@@ -1,20 +1,16 @@
+import json
 import os
-import sys 
 
-sys.path.append("<path/to/your/robocasa>")
-# E.x: sys.path.append("/home/binhng/Workspace/robocasa/robocasa")
-
-from multiprocessing import Pool
-import json 
 import h5py
 import numpy as np
-from tqdm import tqdm
-
 import robosuite
-
-from robocasa.scripts.playback_dataset import reset_to  
-from robosuite.utils.camera_utils import get_camera_intrinsic_matrix, get_camera_extrinsic_matrix, get_camera_extrinsic_matrix_rel
-
+from robocasa.scripts.playback_dataset import reset_to
+from robosuite.utils.camera_utils import (
+    get_camera_extrinsic_matrix,
+    get_camera_extrinsic_matrix_rel,
+    get_camera_intrinsic_matrix,
+)
+from tqdm import tqdm
 
 ROBOCASA_DUMMY_ACTION = [0.0] * 6 + [-1.0] + [0.0] * 4 + [-1.0]
 
@@ -23,22 +19,22 @@ def get_camera_info(sim, camera_name, camera_height, camera_width):
     camera_intrinsics = get_camera_intrinsic_matrix(sim, camera_name, camera_height, camera_width)
     camera_extrinsics = get_camera_extrinsic_matrix(sim, camera_name)
 
-    return camera_intrinsics, camera_extrinsics 
+    return camera_intrinsics, camera_extrinsics
 
 
 def creat_env_from_hdf5(f):
     env_meta = json.loads(f["data"].attrs["env_args"])
-    env_meta['env_kwargs']['camera_depths'] = True 
-    env_meta['env_kwargs']['camera_heights'] = 256
-    env_meta['env_kwargs']['camera_widths'] = 256
-    env_meta['env_kwargs']['camera_segmentations'] = 'element' # element' #'instance'
+    env_meta["env_kwargs"]["camera_depths"] = True
+    env_meta["env_kwargs"]["camera_heights"] = 256
+    env_meta["env_kwargs"]["camera_widths"] = 256
+    env_meta["env_kwargs"]["camera_segmentations"] = "element"  # element' #'instance'
     # f.close()
 
     env_kwargs = env_meta["env_kwargs"]
     env_kwargs["env_name"] = env_meta["env_name"]
     env_kwargs["has_renderer"] = False
     env_kwargs["renderer"] = "mjviewer"
-    env_kwargs["has_offscreen_renderer"] = True #write_video
+    env_kwargs["has_offscreen_renderer"] = True  # write_video
     env_kwargs["use_camera_obs"] = True
     env_kwargs["ignore_done"] = False
 
@@ -50,15 +46,12 @@ def creat_env_from_hdf5(f):
 def reset_each_demo(env, demo):
     # demo = f["data"]["demo_<idx>"]
     model_xml = demo.attrs["model_file"]
-    init_state = demo['states'][()][0]
+    init_state = demo["states"][()][0]
     ep_meta = demo.attrs["ep_meta"]
 
-    state = {
-        "states": init_state,
-        "model": model_xml,
-        "ep_meta": ep_meta
-    }
+    state = {"states": init_state, "model": model_xml, "ep_meta": ep_meta}
     reset_to(env, state)
+
 
 def process_1_demo(env, f, demo_id, grp):
     demo = f["data"][demo_id]
@@ -71,9 +64,21 @@ def process_1_demo(env, f, demo_id, grp):
         obs, reward, done, info = env.step(ROBOCASA_DUMMY_ACTION)
 
     obs_keys = list(obs.keys())
-    obs_keys += ["robot0_agentview_left_intrinsics", "robot0_agentview_right_intrinsics", "robot0_eye_in_hand_intrinsics"]
-    obs_keys += ["robot0_agentview_left_extrinsics", "robot0_agentview_right_extrinsics", "robot0_eye_in_hand_extrinsics"]
-    obs_keys += ["robot0_agentview_left_extrinsicsR", "robot0_agentview_right_extrinsicsR", "robot0_eye_in_hand_extrinsicsR"]
+    obs_keys += [
+        "robot0_agentview_left_intrinsics",
+        "robot0_agentview_right_intrinsics",
+        "robot0_eye_in_hand_intrinsics",
+    ]
+    obs_keys += [
+        "robot0_agentview_left_extrinsics",
+        "robot0_agentview_right_extrinsics",
+        "robot0_eye_in_hand_extrinsics",
+    ]
+    obs_keys += [
+        "robot0_agentview_left_extrinsicsR",
+        "robot0_agentview_right_extrinsicsR",
+        "robot0_eye_in_hand_extrinsicsR",
+    ]
     obs_keys += ["robot0_agentview_left_depthW", "robot0_agentview_right_depthW", "robot0_eye_in_hand_depthW"]
 
     obs_dict = {key: [] for key in obs_keys}
@@ -82,16 +87,16 @@ def process_1_demo(env, f, demo_id, grp):
     actions_abs = []
     rewards = []
     dones = []
-    states = [] # env state, not robot. The state for robot is included in obs
+    states = []  # env state, not robot. The state for robot is included in obs
 
     # for key in obs_keys:
     #     obs_dict[key] = obs[key]
-    orig_actions = demo['actions'][()]
-    orig_actions_abs = demo['actions_abs'][()]
+    orig_actions = demo["actions"][()]
+    orig_actions_abs = demo["actions_abs"][()]
     # orig_action_dict = demo['action_dict']
 
     for i, action in enumerate(orig_actions):
-    # for i, action in enumerate(orig_actions_abs):
+        # for i, action in enumerate(orig_actions_abs):
         extent = env.sim.model.stat.extent
         far = env.sim.model.vis.map.zfar * extent
         near = env.sim.model.vis.map.znear * extent
@@ -113,7 +118,7 @@ def process_1_demo(env, f, demo_id, grp):
         obs["robot0_agentview_left_intrinsics"] = left_intrinsics
         obs["robot0_agentview_right_intrinsics"] = right_intrinsics
         obs["robot0_eye_in_hand_intrinsics"] = wrist_intrinsics
-        obs["robot0_agentview_left_extrinsics"] = left_extrinsics        
+        obs["robot0_agentview_left_extrinsics"] = left_extrinsics
         obs["robot0_agentview_right_extrinsics"] = right_extrinsics
         obs["robot0_eye_in_hand_extrinsics"] = wrist_extrinsics
 
@@ -127,8 +132,13 @@ def process_1_demo(env, f, demo_id, grp):
 
         # append all keys
         for key in obs_keys:
-            if ("eye_in_hand" in key or "agentview" in key) and "depthW" not in key and "intrinsics" not in key and "extrinsics" not in key:
-                obs_dict[key].append(obs[key][::-1, :, :]) 
+            if (
+                ("eye_in_hand" in key or "agentview" in key)
+                and "depthW" not in key
+                and "intrinsics" not in key
+                and "extrinsics" not in key
+            ):
+                obs_dict[key].append(obs[key][::-1, :, :])
             else:
                 obs_dict[key].append(obs[key])
 
@@ -195,7 +205,7 @@ def regenerate_hdf5_dataset(input_path, output_path, debug=False):
 
     all_demo_ids = list(f["data"].keys())
     if debug:
-        all_demo_ids = all_demo_ids[:min(2, len(all_demo_ids))]
+        all_demo_ids = all_demo_ids[: min(2, len(all_demo_ids))]
     for demo_id in tqdm(all_demo_ids):
         print(f"Processing {demo_id} ...")
         process_1_demo(env, f, demo_id, grp)
@@ -213,8 +223,8 @@ def regenerate_hdf5_dataset(input_path, output_path, debug=False):
 def process_task_wrapper(args):
     """Wrapper function for multiprocessing to process a single task."""
     task, origin_dir, regenerate_dir, debug = args
-    input_path = os.path.join(origin_dir, f'{task}.hdf5')
-    output_path = os.path.join(regenerate_dir, f'{task}.hdf5')
+    input_path = os.path.join(origin_dir, f"{task}.hdf5")
+    output_path = os.path.join(regenerate_dir, f"{task}.hdf5")
 
     print(f"Regenerating dataset for task {task} ...")
     regenerate_hdf5_dataset(input_path, output_path, debug=debug)
@@ -222,19 +232,18 @@ def process_task_wrapper(args):
 
 
 if __name__ == "__main__":
-    n_demo = 100 # 100
-    origin_dir = f'<directory/contain/original/hdf5/files/>'
-    regenerate_dir = f'<directory/contain/regenerated/hdf5/files/>'
+    n_demo = 100  # 100
+    origin_dir = f"<directory/contain/original/hdf5/files/>"
+    regenerate_dir = f"<directory/contain/regenerated/hdf5/files/>"
     os.makedirs(regenerate_dir, exist_ok=True)
-    
+
     task_list = [
-        'PnPCabToCounter',
-        'PnPCounterToCab',
-        'CoffeeSetupMug',
-        'TurnOffStove',
-        'TurnOnMicrowave'
+        "PnPCabToCounter",
+        "PnPCounterToCab",
+        "CoffeeSetupMug",
+        "TurnOffStove",
+        "TurnOnMicrowave",
         # ... add other tasks as needed
-        
         # "CoffeePressButton",
         # "CoffeeServeMug",
         # "TurnOffMicrowave",
@@ -242,29 +251,27 @@ if __name__ == "__main__":
         # "TurnOnSinkFaucet",
         # "TurnOnStove",
         # "TurnSinkSpout"
-        
         # "CloseDoubleDoor",
         # "CloseDrawer",
         # "CloseSingleDoor",
         # "OpenDoubleDoor",
         # "OpenDrawer",
         # "OpenSingleDoor"
-
         # "PnPCounterToMicrowave",
         # "PnPCounterToSink",
         # "PnPCounterToStove",
         # "PnPMicrowaveToCounter",
         # "PnPSinkToCounter",
         # "PnPStoveToCounter"
-    ] # 24 tasks in robocasa kitchen dataset
-    
+    ]  # 24 tasks in robocasa kitchen dataset
+
     debug = False
     if debug:
         task_list = task_list[:2]
-    
+
     for task in task_list:
-        input_path = os.path.join(origin_dir, f'{task}.hdf5')
-        output_path = os.path.join(regenerate_dir, f'{task}.hdf5')
-        
+        input_path = os.path.join(origin_dir, f"{task}.hdf5")
+        output_path = os.path.join(regenerate_dir, f"{task}.hdf5")
+
         print(f"Regenerating dataset for task {task} ...")
         regenerate_hdf5_dataset(input_path, output_path, debug=False)

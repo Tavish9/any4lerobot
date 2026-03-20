@@ -1,6 +1,7 @@
 import numpy as np
 import robosuite.utils.transform_utils as T
 
+
 def get_camera_intrinsic_matrix(sim, camera_name, camera_height, camera_width):
     """
     Obtains camera intrinsic matrix.
