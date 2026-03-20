@@ -20,14 +20,15 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
 
 ## 📣 What's New <a><img width="35" height="20" src="https://user-images.githubusercontent.com/12782558/212848161-5e783dd6-11e8-4fe0-bbba-39ffb77730be.png"></a>
 
+- **\[2026.03.20\]** We have supported Data Conversion from RoboCasa to LeRobot! 🔥🔥🔥
 - **\[2025.10.04\]** We have collected and updated all Dataset Version Conversion Scripts for LeRobot! 🔥🔥🔥
 - **\[2025.09.28\]** We have upgraded LeRobotDataset from v2.1 to v3.0! 🔥🔥🔥
 - **\[2025.06.27\]** We have supported Data Conversion from LIBERO to LeRobot! 🔥🔥🔥
 - **\[2025.05.16\]** We have supported Data Conversion from LeRobot to RLDS! 🔥🔥🔥
-- **\[2025.05.12\]** We have supported Data Conversion from RoboMIND to LeRobot! 🔥🔥🔥
 <details>
 <summary>More News</summary>
 
+- **\[2025.05.12\]** We have supported Data Conversion from RoboMIND to LeRobot! 🔥🔥🔥
 - **\[2025.04.15\]** We add Dataset Merging Tool for merging multi-source lerobot datasets! 🔥🔥🔥
 - **\[2025.04.14\]** We have supported Data Conversion from AgiBotWorld to LeRobot! 🔥🔥🔥
 - **\[2025.04.11\]** We change the repo from `openx2lerobot` to `any4lerobot`, making a ​​universal toolbox for LeRobot​​! 🔥🔥🔥
@@ -51,6 +52,7 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
   - [x] [RoboMIND to LeRobot](./robomind2lerobot/README.md)
   - [x] [LeRobot to RLDS](./lerobot2rlds/README.md)
   - [x] [LIBERO to LeRobot](./libero2lerobot/README.md)
+  - [x] [RoboCasa to LeRobot](./robocasa2lerobot/README.md)
 
 - ​[**Version Conversion​**​](./ds_version_convert/README.md):
 
