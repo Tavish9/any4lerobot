@@ -48,40 +48,39 @@ def main(raw_dir: Path, repo_id: str, local_dir: Path):
     )
 
     for dataset_path in raw_dir.glob("**/*.hdf5"):
-        raw_dataset = h5py.File(dataset_path, "r")
-        demos = raw_dataset["data"].keys()
-        for demo in tqdm(demos):
-            demo_length = len(raw_dataset["data"][demo]["actions"])
-            demo_data = raw_dataset["data"][demo]
+         with h5py.File(dataset_path, "r") as raw_dataset:
+            demos = raw_dataset["data"].keys()
+            for demo in tqdm(demos):
+                demo_length = len(raw_dataset["data"][demo]["actions"])
+                demo_data = raw_dataset["data"][demo]
 
-            left_images = demo_data["obs"]["robot0_agentview_left_image"][:]
-            right_images = demo_data["obs"]["robot0_agentview_right_image"][:]
-            wrist_images = demo_data["obs"]["robot0_eye_in_hand_image"][:]
-            states = np.concatenate(
-                (
-                    demo_data["obs"]["robot0_base_to_eef_pos"][:],
-                    demo_data["obs"]["robot0_base_to_eef_quat"][:],
-                    demo_data["obs"]["robot0_gripper_qpos"][:],
-                ),
-                axis=1,
-            )
-            actions = demo_data["actions"][:]
-            for i in range(demo_length):
-                ep_meta = demo_data.attrs["ep_meta"]
-                ep_meta = json.loads(ep_meta)
-                lang = ep_meta["lang"]
-                dataset.add_frame(
-                    {
-                        "observation.images.robot0_agentview_right": right_images[i],
-                        "observation.images.robot0_agentview_left": left_images[i],
-                        "observation.images.robot0_eye_in_hand": wrist_images[i],
-                        "observation.state": states[i].astype(np.float32),
-                        "action": actions[i].astype(np.float32),
-                        "task": lang,
-                    },
+                left_images = demo_data["obs"]["robot0_agentview_left_image"][:]
+                right_images = demo_data["obs"]["robot0_agentview_right_image"][:]
+                wrist_images = demo_data["obs"]["robot0_eye_in_hand_image"][:]
+                states = np.concatenate(
+                    (
+                        demo_data["obs"]["robot0_base_to_eef_pos"][:],
+                        demo_data["obs"]["robot0_base_to_eef_quat"][:],
+                        demo_data["obs"]["robot0_gripper_qpos"][:],
+                    ),
+                    axis=1,
                 )
-
-            dataset.save_episode()
+                actions = demo_data["actions"][:]
+                for i in range(demo_length):
+                    ep_meta = demo_data.attrs["ep_meta"]
+                    ep_meta = json.loads(ep_meta)
+                    lang = ep_meta["lang"]
+                    dataset.add_frame(
+                        {
+                            "observation.images.robot0_agentview_right": right_images[i],
+                            "observation.images.robot0_agentview_left": left_images[i],
+                            "observation.images.robot0_eye_in_hand": wrist_images[i],
+                            "observation.state": states[i].astype(np.float32),
+                            "action": actions[i].astype(np.float32),
+                            "task": lang,
+                        },
+                    )
+                dataset.save_episode()
     dataset.finalize()
 
 
