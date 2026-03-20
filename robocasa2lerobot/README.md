@@ -13,7 +13,7 @@
 ## Example:
 
 ```bash
-wget https://utexas.box.com/shared/static/7y9csrcx6uhhq4p3yctmm2df3rjqpw6g.hdf5 PnPCounterToCab.hdf5
+wget https://utexas.box.com/shared/static/7y9csrcx6uhhq4p3yctmm2df3rjqpw6g.hdf5 -O PnPCounterToCab.hdf5
 ```
 
 - Extract subset data: Original hdf5 files contain about 3000 episodes. However, it contains a key "masks", which contain list of subset demo_ids. For example: 30_demos : `[demo123, demo234, demo345, etc.]`.Run the code in the notebook to extract only chosen subset demos, which is much smaller and easier for later processes.
