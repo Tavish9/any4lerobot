@@ -1,30 +1,33 @@
 # ROBOCASA TO LEROBOT
 
 ## ROBOCASA installation
+
 - Clone this repo: https://github.com/robocasa/robocasa
 - Follow README.md to install packages and download assets
 
+## Data Preparation
 
-## DATA PREPARATION
 - Check files: `robocasa/scripts/download_datasets.py`, `robocasa/utils/dataset_registry.py`
 - Download original datasets by python scripts or wget/curl (recommended)
 
 ## Example:
+
 ```bash
 wget https://utexas.box.com/shared/static/7y9csrcx6uhhq4p3yctmm2df3rjqpw6g.hdf5 PnPCounterToCab.hdf5
 ```
 
-- Extract subset data: Original hdf5 files contain about 3000 episodes. However, it contains a key "masks", which contain list of subset demo_ids. For example: 30_demos : `[demo123, demo234, demo 345, etc.]`.Run the code in the notebook to extract only chosen subset demos, which is much smaller and easier for later processes.
+- Extract subset data: Original hdf5 files contain about 3000 episodes. However, it contains a key "masks", which contain list of subset demo_ids. For example: 30_demos : `[demo123, demo234, demo345, etc.]`.Run the code in the notebook to extract only chosen subset demos, which is much smaller and easier for later processes.
 
+## Code Modification
 
-## CODE MODIFICATION
 - Add functions in `camera_utils.py` to your `robosuite/robosuite/utils/camera_utils.py` for camera parameters extraction (May be useful for experiments which requires multiview rendering)
 
 - Change args to render depth and segmentation masks for new regenerated dataset. Change in `robocasa/environments/kitchen/kitchen.py`
+
 ```python
 
 class Kitchen(ManipulationEnv, metaclass=KitchenEnvMeta):
-    ... 
+    ...
     EXCLUDE_LAYOUTS = []
     def __init__(
         self,
@@ -101,25 +104,41 @@ class Kitchen(ManipulationEnv, metaclass=KitchenEnvMeta):
         )
 ```
 
+## Regenerate
 
-## REGERERATE
 - Check file: `regenerate.py`
 - Original dataset contain image in 128x128 resolution and does not contain segmentation mask, depth, etc. We need to rerender it in 256x256 and save segmentation mask, and depth
-- Overall re-render flow: 
-	- (1) load hdf5 file and create env
-	- (2) reset env to first state in the dataset
-	- (3) Execute action in action label of original dataset, at each step, we collect observation data, camera parameters, state, etc. from simulation.
-	- (4) Save only successful episode to new hdf5 file (original data contain unsuccessful episode or wrong action)
+- Overall re-render flow:
+  - (1) load hdf5 file and create env
+  - (2) reset env to first state in the dataset
+  - (3) Execute action in action label of original dataset, at each step, we collect observation data, camera parameters, state, etc. from simulation.
+  - (4) Save only successful episode to new hdf5 file (original data contain unsuccessful episode or wrong action)
 - Change `origin_dir` and `regenerate_dir` to your dir in `regenerate.py` then run `python regenerate.py` to regenerate
 
+## Get started
 
-## CONVERT HDF5 TO LEROBOT
-- Check file: `robocasa_h52lerobot.py` and change `DATA_DIR` and `OUT_DATA_DIR` to your
-- Run `python robocasa_h52lerobot.py` to convert from HDF5 to lerobot format
-**Note**:
-    - You can add more feature to your lerobot dataset such as extracted depth, segmentation mask, camera parameters which is retrieved from regenerate steps
-    - This code convert hdf5 to lerobot v2.1 dataset. It may work well with `lerobot==0.1.0`
+1. Download source code:
+
+   ```bash
+   git clone https://github.com/Tavish9/any4lerobot.git
+   ```
+
+2. Modify path in `convert.sh`:
+
+   ```bash
+   python robocasa_h5.py \
+       --raw-dir /path/to/your/hdf5/files \
+       --repo-id your_hf_id \
+       --local-dir /path/to/your/output/dataset
+   ```
+
+3. Execute the script:
+
+   ```bash
+   bash convert.sh
+   ```
 
 ## Example output datasets:
+
 - ROBOCASA 100 demos: https://huggingface.co/datasets/binhng/robocasa_merged_24_tasks_100demos_v1
 - ROBOCASA 30 demos: https://huggingface.co/datasets/binhng/robocasa_merged_24_tasks_30demos_v3
