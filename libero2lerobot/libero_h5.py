@@ -8,6 +8,7 @@ import pandas as pd
 import ray
 from datatrove.executor import LocalPipelineExecutor, RayPipelineExecutor
 from datatrove.pipeline.base import PipelineStep
+from lerobot.datasets import LeRobotDataset, LeRobotDatasetMetadata
 from lerobot.datasets.aggregate import (
     aggregate_data,
     aggregate_metadata,
@@ -15,14 +16,11 @@ from lerobot.datasets.aggregate import (
     aggregate_videos,
     validate_all_metadata,
 )
-from lerobot.datasets.lerobot_dataset import LeRobotDataset, LeRobotDatasetMetadata
+from lerobot.datasets.io_utils import write_info, write_stats, write_tasks
 from lerobot.datasets.utils import (
     DEFAULT_CHUNK_SIZE,
     DEFAULT_DATA_FILE_SIZE_IN_MB,
     DEFAULT_VIDEO_FILE_SIZE_IN_MB,
-    write_info,
-    write_stats,
-    write_tasks,
 )
 from libero_utils.config import LIBERO_FEATURES
 from libero_utils.libero_utils import load_local_episodes
@@ -171,7 +169,9 @@ def main(
                 )
             )
     if len(src_paths) > 1:
-        aggregate_output_path = output_path / ("_".join([src_path.name for src_path in src_paths]) + "_aggregated_lerobot")
+        aggregate_output_path = output_path / (
+            "_".join([src_path.name for src_path in src_paths]) + "_aggregated_lerobot"
+        )
     else:
         aggregate_output_path = output_path / f"{src_paths[0].name}_lerobot"
     aggregate_output_path = aggregate_output_path.resolve()
@@ -234,7 +234,9 @@ if __name__ == "__main__":
     parser.add_argument("--output-path", type=Path, required=True)
     parser.add_argument("--executor", type=str, choices=["local", "ray"], default="local")
     parser.add_argument("--cpus-per-task", type=int, default=1)
-    parser.add_argument("--tasks-per-job", type=int, default=1, help="number of concurrent tasks per job, only used for ray")
+    parser.add_argument(
+        "--tasks-per-job", type=int, default=1, help="number of concurrent tasks per job, only used for ray"
+    )
     parser.add_argument("--workers", type=int, default=-1, help="number of concurrent jobs to run")
     parser.add_argument("--resume-dir", type=Path, help="logs directory to resume")
     parser.add_argument("--debug", action="store_true")
