@@ -28,7 +28,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 class RoboMINDDatasetMetadata(LeRobotDatasetMetadata):
     def _flush_metadata_buffer(self) -> None:
         """Write all buffered episode metadata to parquet file."""
-        if not hasattr(self, "metadata_buffer") or len(self._metadata_buffer) == 0:
+        if not hasattr(self, "_metadata_buffer") or len(self._metadata_buffer) == 0:
             return
 
         combined_dict = {}
@@ -348,10 +348,6 @@ def main(
         for embodiment in embodiments:
             tasks = get_all_tasks(src_path / benchmark, output_path, embodiment)
             for task in tasks:
-                if "open_cap_trash_can" in task[0] and "1" not in task[0] and "2" not in task[0]:
-                    print(f"Processing {task[0]}")
-                else:
-                    continue
                 futures.append((task[1], remote_task.remote(task, src_path, benchmark, embodiment, save_depth)))
 
         for task_path, future in futures:
