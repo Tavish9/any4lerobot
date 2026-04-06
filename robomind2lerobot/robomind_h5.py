@@ -1,4 +1,5 @@
 import argparse
+import concurrent.futures
 import inspect
 import json
 import logging
@@ -10,9 +11,12 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 import ray
+from lerobot.datasets import LeRobotDataset, LeRobotDatasetMetadata
 from lerobot.datasets.compute_stats import aggregate_stats
-from lerobot.datasets.lerobot_dataset import LeRobotDataset, LeRobotDatasetMetadata
-from lerobot.datasets.utils import DEFAULT_EPISODES_PATH, flatten_dict, validate_episode_buffer, write_info, write_stats
+from lerobot.datasets.dataset_writer import DatasetWriter, _encode_video_worker
+from lerobot.datasets.feature_utils import validate_episode_buffer
+from lerobot.datasets.io_utils import write_info, write_stats
+from lerobot.datasets.utils import DEFAULT_EPISODES_PATH, flatten_dict
 from ray.runtime_env import RuntimeEnv
 from robomind_uitls.configs import ROBOMIND_CONFIG
 from robomind_uitls.lerobot_uitls import compute_episode_stats, generate_features_from_config
@@ -24,11 +28,11 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 class RoboMINDDatasetMetadata(LeRobotDatasetMetadata):
     def _flush_metadata_buffer(self) -> None:
         """Write all buffered episode metadata to parquet file."""
-        if not hasattr(self, "metadata_buffer") or len(self.metadata_buffer) == 0:
+        if not hasattr(self, "metadata_buffer") or len(self._metadata_buffer) == 0:
             return
 
         combined_dict = {}
-        for episode_dict in self.metadata_buffer:
+        for episode_dict in self._metadata_buffer:
             for key, value in episode_dict.items():
                 if key not in combined_dict:
                     combined_dict[key] = []
@@ -37,22 +41,22 @@ class RoboMINDDatasetMetadata(LeRobotDatasetMetadata):
                 val = value[0] if isinstance(value, list) else value
                 combined_dict[key].append(val.tolist() if isinstance(val, np.ndarray) else val)
 
-        first_ep = self.metadata_buffer[0]
+        first_ep = self._metadata_buffer[0]
         chunk_idx = first_ep["meta/episodes/chunk_index"][0]
         file_idx = first_ep["meta/episodes/file_index"][0]
 
-        schema = None if not self.writer else self.writer.schema
+        schema = None if not self._pq_writer else self._pq_writer.schema
         table = pa.Table.from_pydict(combined_dict, schema=schema)
 
-        if not self.writer:
+        if not self._pq_writer:
             path = Path(self.root / DEFAULT_EPISODES_PATH.format(chunk_index=chunk_idx, file_index=file_idx))
             path.parent.mkdir(parents=True, exist_ok=True)
-            self.writer = pq.ParquetWriter(path, schema=table.schema, compression="snappy", use_dictionary=True)
+            self._pq_writer = pq.ParquetWriter(path, schema=table.schema, compression="snappy", use_dictionary=True)
 
-        self.writer.write_table(table)
+        self._pq_writer.write_table(table)
 
-        self.latest_episode = self.metadata_buffer[-1]
-        self.metadata_buffer.clear()
+        self.latest_episode = self._metadata_buffer[-1]
+        self._metadata_buffer.clear()
 
     def save_episode(
         self,
@@ -88,6 +92,116 @@ class RoboMINDDatasetMetadata(LeRobotDatasetMetadata):
         write_stats(self.stats, self.root)
 
 
+class RoboMINDDatasetWriter(DatasetWriter):
+    def save_episode(
+        self,
+        split,
+        action_config: dict,
+        episode_data: dict | None = None,
+        parallel_encoding: bool = True,
+    ) -> None:
+        """Save the current episode in self.episode_buffer to disk."""
+        episode_buffer = episode_data if episode_data is not None else self.episode_buffer
+
+        validate_episode_buffer(episode_buffer, self._meta.total_episodes, self._meta.features)
+
+        # size and task are special cases that won't be added to hf_dataset
+        episode_length = episode_buffer.pop("size")
+        tasks = episode_buffer.pop("task")
+        episode_tasks = list(set(tasks))
+        episode_index = episode_buffer["episode_index"]
+
+        episode_buffer["index"] = np.arange(self._meta.total_frames, self._meta.total_frames + episode_length)
+        episode_buffer["episode_index"] = np.full((episode_length,), episode_index)
+
+        # Update tasks and task indices with new tasks if any
+        self._meta.save_episode_tasks(episode_tasks)
+
+        # Given tasks in natural language, find their corresponding task indices
+        episode_buffer["task_index"] = np.array([self._meta.get_task_index(task) for task in tasks])
+
+        for key, ft in self._meta.features.items():
+            if key in ["index", "episode_index", "task_index"] or ft["dtype"] in ["video"]:
+                continue
+            episode_buffer[key] = np.stack(episode_buffer[key]).squeeze()
+
+        # Wait for image writer to end, so that episode stats over images can be computed
+        self._wait_image_writer()
+        has_video_keys = len(self._meta.video_keys) > 0
+        use_streaming = self._streaming_encoder is not None and has_video_keys
+        use_batched_encoding = self._batch_encoding_size > 1
+
+        if use_streaming:
+            non_video_buffer = {
+                k: v for k, v in episode_buffer.items() if self._meta.features.get(k, {}).get("dtype") not in ("video",)
+            }
+            non_video_features = {k: v for k, v in self._meta.features.items() if v["dtype"] != "video"}
+            ep_stats = compute_episode_stats(non_video_buffer, non_video_features)
+        else:
+            ep_stats = compute_episode_stats(episode_buffer, self._meta.features)
+
+        ep_metadata = self._save_episode_data(episode_buffer)
+
+        if use_streaming:
+            streaming_results = self._streaming_encoder.finish_episode()
+            for video_key in self._meta.video_keys:
+                temp_path, video_stats = streaming_results[video_key]
+                if video_stats is not None:
+                    ep_stats[video_key] = {
+                        k: v if k == "count" else np.squeeze(v.reshape(1, -1, 1, 1) / 255.0, axis=0)
+                        for k, v in video_stats.items()
+                    }
+                ep_metadata.update(self._save_episode_video(video_key, episode_index, temp_path=temp_path))
+        elif has_video_keys and not use_batched_encoding:
+            num_cameras = len(self._meta.video_keys)
+            if parallel_encoding and num_cameras > 1:
+                with concurrent.futures.ProcessPoolExecutor(max_workers=num_cameras) as executor:
+                    future_to_key = {
+                        executor.submit(
+                            _encode_video_worker,
+                            video_key,
+                            episode_index,
+                            self._root,
+                            self._meta.fps,
+                            self._vcodec,
+                            self._encoder_threads,
+                        ): video_key
+                        for video_key in self._meta.video_keys
+                    }
+
+                    results = {}
+                    for future in concurrent.futures.as_completed(future_to_key):
+                        video_key = future_to_key[future]
+                        try:
+                            temp_path = future.result()
+                            results[video_key] = temp_path
+                        except Exception as exc:
+                            logging.error(f"Video encoding failed for {video_key}: {exc}")
+                            raise exc
+
+                for video_key in self._meta.video_keys:
+                    temp_path = results[video_key]
+                    ep_metadata.update(self._save_episode_video(video_key, episode_index, temp_path=temp_path))
+            else:
+                for video_key in self._meta.video_keys:
+                    ep_metadata.update(self._save_episode_video(video_key, episode_index))
+
+        # `meta.save_episode` be executed after encoding the videos
+        ep_metadata.update({"action_config": action_config})
+        self._meta.save_episode(split, episode_index, episode_length, episode_tasks, ep_stats, ep_metadata)
+
+        if has_video_keys and use_batched_encoding:
+            self._episodes_since_last_encoding += 1
+            if self._episodes_since_last_encoding == self._batch_encoding_size:
+                start_ep = self._meta.total_episodes - self._batch_encoding_size
+                end_ep = self._meta.total_episodes
+                self._batch_save_episode_video(start_ep, end_ep)
+                self._episodes_since_last_encoding = 0
+
+        if not episode_data:
+            self.clear_episode_buffer(delete_images=len(self._meta.image_keys) > 0)
+
+
 class RoboMINDDataset(LeRobotDataset):
     @classmethod
     def create(cls, *args, **kwargs) -> "RoboMINDDataset":
@@ -108,70 +222,20 @@ class RoboMINDDataset(LeRobotDataset):
             use_videos=params["use_videos"],
             metadata_buffer_size=params["metadata_buffer_size"],
         )
+        obj.writer: RoboMINDDatasetWriter = RoboMINDDatasetWriter(
+            meta=obj.meta,
+            root=obj.root,
+            vcodec=obj._vcodec,
+            encoder_threads=obj._encoder_threads,
+            batch_encoding_size=obj._batch_encoding_size,
+        )
         return obj
 
-    def save_episode(self, split, action_config: dict, episode_data: dict | None = None) -> None:
-        """
-        This will save to disk the current episode in self.episode_buffer.
-
-        Args:
-            episode_data (dict | None, optional): Dict containing the episode data to save. If None, this will
-                save the current episode in self.episode_buffer, which is filled with 'add_frame'. Defaults to
-                None.
-        """
-        episode_buffer = episode_data if episode_data is not None else self.episode_buffer
-
-        validate_episode_buffer(episode_buffer, self.meta.total_episodes, self.features)
-
-        # size and task are special cases that won't be added to hf_dataset
-        episode_length = episode_buffer.pop("size")
-        tasks = episode_buffer.pop("task")
-        episode_tasks = list(set(tasks))
-        episode_index = episode_buffer["episode_index"]
-
-        episode_buffer["index"] = np.arange(self.meta.total_frames, self.meta.total_frames + episode_length)
-        episode_buffer["episode_index"] = np.full((episode_length,), episode_index)
-
-        # Update tasks and task indices with new tasks if any
-        self.meta.save_episode_tasks(episode_tasks)
-
-        # Given tasks in natural language, find their corresponding task indices
-        episode_buffer["task_index"] = np.array([self.meta.get_task_index(task) for task in tasks])
-
-        for key, ft in self.features.items():
-            # index, episode_index, task_index are already processed above, and image and video
-            # are processed separately by storing image path and frame info as meta data
-            if key in ["index", "episode_index", "task_index"] or ft["dtype"] in ["video"]:
-                continue
-            episode_buffer[key] = np.stack(episode_buffer[key]).squeeze()
-
-        self._wait_image_writer()
-        ep_stats = compute_episode_stats(episode_buffer, self.features)
-
-        ep_metadata = self._save_episode_data(episode_buffer)
-        has_video_keys = len(self.meta.video_keys) > 0
-        use_batched_encoding = self.batch_encoding_size > 1
-
-        if has_video_keys and not use_batched_encoding:
-            for video_key in self.meta.video_keys:
-                ep_metadata.update(self._save_episode_video(video_key, episode_index))
-
-        # `meta.save_episode` be executed after encoding the videos
-        ep_metadata.update({"action_config": action_config})
-        self.meta.save_episode(split, episode_index, episode_length, episode_tasks, ep_stats, ep_metadata)
-
-        if has_video_keys and use_batched_encoding:
-            # Check if we should trigger batch encoding
-            self.episodes_since_last_encoding += 1
-            if self.episodes_since_last_encoding == self.batch_encoding_size:
-                start_ep = self.num_episodes - self.batch_encoding_size
-                end_ep = self.num_episodes
-                self._batch_save_episode_video(start_ep, end_ep)
-                self.episodes_since_last_encoding = 0
-
-        if not episode_data:
-            # Reset episode buffer and clean up temporary images (if not already deleted during video encoding)
-            self.clear_episode_buffer(delete_images=len(self.meta.image_keys) > 0)
+    def save_episode(
+        self, split, action_config: dict, episode_data: dict | None = None, parallel_encoding: bool = True
+    ) -> None:
+        self._require_writer("save_episode")
+        self.writer.save_episode(split, action_config, episode_data, parallel_encoding)
 
 
 def get_all_tasks(src_path: Path, output_path: Path, embodiment: str):
@@ -284,6 +348,10 @@ def main(
         for embodiment in embodiments:
             tasks = get_all_tasks(src_path / benchmark, output_path, embodiment)
             for task in tasks:
+                if "open_cap_trash_can" in task[0] and "1" not in task[0] and "2" not in task[0]:
+                    print(f"Processing {task[0]}")
+                else:
+                    continue
                 futures.append((task[1], remote_task.remote(task, src_path, benchmark, embodiment, save_depth)))
 
         for task_path, future in futures:
