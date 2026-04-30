@@ -181,7 +181,7 @@ def convert_data(root: Path, new_root: Path, episode_records: list[dict[str, Any
                     f"episode_index={episode_index}, length={length}"
                 )
 
-            episode_table = table.slice(start, length).to_pandas()
+            episode_table = table.slice(start, length)
 
             dest_chunk = episode_index // DEFAULT_CHUNK_SIZE
             dest_path = new_root / LEGACY_DATA_PATH_TEMPLATE.format(
@@ -189,7 +189,7 @@ def convert_data(root: Path, new_root: Path, episode_records: list[dict[str, Any
                 episode_index=episode_index,
             )
             dest_path.parent.mkdir(parents=True, exist_ok=True)
-            Dataset.from_pandas(episode_table).to_parquet(dest_path)
+            Dataset(episode_table).to_parquet(dest_path)
 
 
 def _group_episodes_by_video_file(
