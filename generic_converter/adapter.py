@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
-from pathlib import Path
 
 from .utils import ConversionTask, FeatureSpec
 
@@ -15,13 +14,7 @@ class BaseAdapter(ABC):
     tags: Sequence[str] = ()
 
     @abstractmethod
-    def load_tasks(
-        self,
-        output_path: Path,
-        *,
-        src_paths: Sequence[Path] | None = None,
-        tasks_file: Path | None = None,
-    ) -> list[ConversionTask]:
+    def load_tasks(self) -> list[ConversionTask]:
         """Build conversion tasks from dataset-specific inputs."""
 
     @abstractmethod
