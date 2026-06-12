@@ -17,6 +17,10 @@ class BaseAdapter(ABC):
     def __init__(self, output_path: Path):
         self.output_path = output_path.expanduser().resolve()
 
+    @property
+    def temp_output_path(self) -> Path:
+        return self.output_path.with_name(f"{self.output_path.name}_temp")
+
     @abstractmethod
     def load_tasks(self) -> list[ConversionTask]:
         """Build conversion tasks from dataset-specific inputs."""

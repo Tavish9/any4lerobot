@@ -49,6 +49,8 @@ Required methods:
 without arguments. Store paths, task manifests, or other adapter options on the
 adapter instance in `__init__`.
 
+Use `adapter.temp_output_path` when building task-level temporary output paths.
+
 `load_subset` receives the full `ConversionTask`, not just an input path. Use
 `task.input_path` for raw data and `task.metadata` for dataset-specific values
 such as language instructions. Each yielded episode must be a sequence of frame
