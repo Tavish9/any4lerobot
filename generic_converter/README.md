@@ -26,8 +26,8 @@ Dataset-specific converters own the adapter logic:
 
 ## Adapter Contract
 
-A dataset converter should subclass `BaseAdapter` and provide dataset-level
-metadata as class attributes.
+A dataset converter should subclass `BaseAdapter`, pass `output_path` to the
+base constructor, and provide dataset-level metadata as class attributes.
 
 Required attributes:
 
@@ -35,7 +35,6 @@ Required attributes:
 - `fps`
 - `robot_type`
 - `features`
-- `output_path`
 
 Optional attributes:
 
@@ -46,8 +45,9 @@ Required methods:
 - `load_tasks(self) -> list[ConversionTask]`
 - `load_subset(self, task: ConversionTask) -> Iterable[Sequence[dict]]`
 
-`run_converter` calls `adapter.load_tasks()` without arguments. Store paths,
-task manifests, or other adapter options on the adapter instance in `__init__`.
+`run_converter` reads `adapter.output_path` and calls `adapter.load_tasks()`
+without arguments. Store paths, task manifests, or other adapter options on the
+adapter instance in `__init__`.
 
 `load_subset` receives the full `ConversionTask`, not just an input path. Use
 `task.input_path` for raw data and `task.metadata` for dataset-specific values
@@ -79,6 +79,9 @@ class MyAdapter(BaseAdapter):
     robot_type = "my_robot"
     features = MY_FEATURES
     tags = ["my_dataset"]
+
+    def __init__(self, output_path):
+        super().__init__(output_path)
 
     def load_tasks(self) -> list[ConversionTask]:
         ...

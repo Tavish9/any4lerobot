@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
+from pathlib import Path
 
 from .utils import ConversionTask, FeatureSpec
 
@@ -12,6 +13,9 @@ class BaseAdapter(ABC):
     robot_type: str
     features: FeatureSpec
     tags: Sequence[str] = ()
+
+    def __init__(self, output_path: Path):
+        self.output_path = output_path.expanduser().resolve()
 
     @abstractmethod
     def load_tasks(self) -> list[ConversionTask]:
