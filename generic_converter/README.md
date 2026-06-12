@@ -67,11 +67,9 @@ the LeRobot `task` field when language tasks are needed.
 Keep dataset-specific values in `metadata`; the generic pipeline does not know
 about task-file schemas or instruction formats.
 
-## Minimal Adapter
+## Usage Sketch
 
 ```python
-from pathlib import Path
-
 from generic_converter import BaseAdapter, ConversionTask, run_converter
 
 
@@ -82,67 +80,18 @@ class MyAdapter(BaseAdapter):
     features = MY_FEATURES
     tags = ["my_dataset"]
 
-    def __init__(self, src_paths: list[Path], output_path: Path):
-        self.src_paths = [path.expanduser().resolve() for path in src_paths]
-        self.output_path = output_path.expanduser().resolve()
-
     def load_tasks(self) -> list[ConversionTask]:
-        tasks = []
-        temp_root = self.output_path.with_name(f"{self.output_path.name}_temp")
-        for src_path in self.src_paths:
-            for raw_file in src_path.glob("*.hdf5"):
-                tasks.append(
-                    ConversionTask(
-                        input_path=raw_file.resolve(),
-                        output_path=(temp_root / src_path.name / raw_file.stem).resolve(),
-                        local_repo_id=f"{src_path.name}/{raw_file.name}",
-                        metadata={"task": raw_file.stem.replace("_", " ")},
-                    )
-                )
-        return tasks
+        ...
 
     def load_subset(self, task: ConversionTask):
-        for raw_episode in load_raw_episodes(task.input_path):
-            yield [
-                {
-                    **frame,
-                    "task": task.metadata["task"],
-                }
-                for frame in raw_episode
-            ]
+        ...
 
 
-adapter = MyAdapter(src_paths=[Path("raw")], output_path=Path("output/my_dataset"))
 run_converter(
     adapter=adapter,
     executor="local",
-    cpus_per_task=4,
+    cpus_per_task=1,
     tasks_per_job=1,
-    workers=4,
+    workers=-1,
 )
 ```
-
-## Execution Notes
-
-`executor="local"` uses Datatrove's local executor.
-
-`executor="ray"` uses Datatrove's Ray executor. The pipeline builds a Ray
-runtime environment with `PYTHONPATH` entries for the repository root, current
-working directory, the current Python path, and the existing environment
-`PYTHONPATH` so Ray workers can import local packages such as
-`generic_converter`.
-
-`debug=True` forces local execution, sets `workers=1`, disables Hub upload, and
-only runs the first two tasks.
-
-`cleanup_temp=True` removes each task's temporary `output_path` after
-aggregation.
-
-## What Stays In Adapters
-
-Task manifests are dataset-specific. If a converter wants JSON, CSV, YAML, or
-another task description format, parse it inside that converter's adapter.
-
-Adapters should also own dataset-specific naming, metadata inference, and raw
-file parsing. The generic pipeline should stay limited to execution and
-LeRobot dataset assembly.
