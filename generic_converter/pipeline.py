@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from datatrove.pipeline.base import PipelineStep
+from datatrove.utils.logging import get_random_str, get_timestamp
 from lerobot.datasets import LeRobotDataset
 from lerobot.datasets.aggregate import aggregate_datasets
 
@@ -116,18 +117,22 @@ def run_converter(
         case _:
             raise ValueError(f"Executor {executor} not supported")
 
+    if resume_dir:
+        logging_dir = str(resume_dir)
+    else:
+        logging_dir = str(Path.cwd() / "logs" / f"{get_timestamp()}_{get_random_str()}")
+    
     executor_cls(
         pipeline=[SaveLeRobotDataset(tasks, adapter)],
         **executor_config,
-        logging_dir=str(resume_dir) if resume_dir else None,
+        logging_dir=logging_dir,
     ).run()
     aggregate_tasks(tasks, output_path, aggr_repo_id=local_repo_id)
 
     if cleanup_temp:
         logger = setup_logger()
         logger.info("Delete temp data_dir")
-        for temp_dir in [task.output_path for task in tasks]:
-            shutil.rmtree(temp_dir, ignore_errors=True)
+        shutil.rmtree(adapter.temp_output_path, ignore_errors=True)
 
     if push_to_hub:
         if hub_repo_id is None:
