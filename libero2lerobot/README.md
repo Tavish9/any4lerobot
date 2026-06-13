@@ -8,13 +8,13 @@ In this dataset, we have made several key improvements:
 
 - **OpenVLA-based LIBERO Regeneration**: Resolution enhancement, No-op action filtration, 180° RGB frame rotation, Failed trajectory filtering.
 - **State Data Preservation**: Maintained native LIBERO state information (accessible via `states.ee_state`, `states.joint_state` and etc.).
-- **Robust Conversion Pipeline**: Using DataTrove framework for High-speed dataset transformation and automatic failure recovery during conversion
+- **Robust Conversion Pipeline**: Using the shared `generic_converter` pipeline with local and Ray DataTrove executors for high-speed dataset transformation and resumable conversion.
 
 Dataset Structure of `meta/info.json`:
 
 ```json
 {
-  "codebase_version": "v3.0", // lastest lerobot format
+  "codebase_version": "v3.0", // latest lerobot format
   "robot_type": "franka", // specific robot type
   "fps": 20, // control frequency
   "features": {
@@ -41,7 +41,30 @@ Dataset Structure of `meta/info.json`:
             "has_audio": false
         }
     },
-    // for more states key, see configs
+    "observation.images.wrist_image": {
+        "dtype": "video",
+        "shape": [
+            256,
+            256,
+            3
+        ],
+        "names": [
+            "height",
+            "width",
+            "rgb"
+        ],
+        "info": {
+            "video.height": 256,
+            "video.width": 256,
+            "video.codec": "av1",
+            "video.pix_fmt": "yuv420p",
+            "video.is_depth_map": false,
+            "video.fps": 20,
+            "video.channels": 3,
+            "has_audio": false
+        }
+    },
+    // for more state keys, see LiberoAdapter.features in libero_h5.py
     "observation.state": {
         "dtype": "float32",
         "shape": [
@@ -52,9 +75,9 @@ Dataset Structure of `meta/info.json`:
                 "x",
                 "y",
                 "z",
-                "roll",
-                "pitch",
-                "yaw",
+                "axis_angle1",
+                "axis_angle2",
+                "axis_angle3",
                 "gripper",
                 "gripper"
             ]
@@ -71,9 +94,9 @@ Dataset Structure of `meta/info.json`:
                 "x",
                 "y",
                 "z",
-                "roll",
-                "pitch",
-                "yaw",
+                "axis_angle1",
+                "axis_angle2",
+                "axis_angle3",
                 "gripper"
             ]
         }
@@ -89,31 +112,33 @@ Dataset Structure of `meta/info.json`:
    Follow instructions in [official repo](https://github.com/huggingface/lerobot?tab=readme-ov-file#installation).
 
 2. Install others:  
-   We use datatrove[ray] for parallel conversion, significantly speeding up data processing tasks by distributing the workload across multiple cores or nodes (if any).
+   We use DataTrove for conversion. Install the Ray extra if you want distributed execution across multiple cores or nodes.
    ```bash
    pip install h5py
    pip install -U datatrove
-   pip install -U "datatrove[ray]" # if you want ray features
+   pip install -U "datatrove[ray]" # optional, for --executor ray
    ```
 
 ## Get started
 
 > [!NOTE]
-> This script supports converting from original hdf5 to lerobot. If you want to convert from rlds to lerobot, check [openx2lerobot](../openx2lerobot/README.md).
+> This script supports converting LIBERO-style HDF5 directories to LeRobot. If you want to convert from RLDS to LeRobot, check [openx2lerobot](../openx2lerobot/README.md).
 
 ### Download source code:
 
 ```bash
 git clone https://github.com/Tavish9/any4lerobot.git
+cd any4lerobot/libero2lerobot
 ```
 
 ### Regenerate LIBERO Trajectory:
 
 1. [Install LIBERO dependency](https://github.com/Lifelong-Robot-Learning/LIBERO?tab=readme-ov-file#installtion) 
 2. Replace `libero_90` with your target libero dataset.
+3. The converter feature schema expects `256x256x3` RGB observations. If your source HDF5 files are the original `128x128` LIBERO files, regenerate them first with `--resolution 256`, or update the image feature shapes in `libero_h5.py` to match your data.
 
 ```bash
-python libero_utils/regenerate_libero_dataset.py \
+python regenerate_libero_dataset.py \
     --resolution 256 \
     --libero_task_suite libero_90 \
     --libero_raw_data_dir /path/to/libero/datasets/libero_90 \
@@ -122,16 +147,17 @@ python libero_utils/regenerate_libero_dataset.py \
 
 ### Modify in `convert.sh`:
 
-1. If you have installed `datatrove[ray]`, we recommend using `ray` executor for faster conversion.
-2. Increase `workers` and `tasks-per-job` if you have sufficient computing resources.
-3. To merge many datasets into one, simply specify both paths like: `--src-paths /path/libero_10 /path/libero_90`
-4. To resume from a previous conversion, provide the appropriate log directory using `--resume-from-save` and `--resume-from-aggregate`
-5. If you want different image resolution, regenerate the trajectory, and change the [config](./libero_utils/config.py). (DO NOT use resize)
+1. `--src-paths` accepts one or more directories containing `*.hdf5` LIBERO task files. To merge many suites into one LeRobot dataset, specify all source directories, for example `--src-paths /path/libero_10 /path/libero_90`.
+2. `--output-path` is the final aggregated LeRobot dataset root. Temporary per-task datasets are written next to it under `<output-name>_temp` and removed after aggregation.
+3. If you have installed `datatrove[ray]`, use `--executor ray` for faster conversion. Increase `--workers`, `--tasks-per-job`, and `--cpus-per-task` if you have enough CPU and memory.
+4. To resume a previous conversion, pass the existing DataTrove log directory with `--resume-dir /path/to/logs/...`.
+5. Use `--debug` for a small local smoke test. It converts only the first two tasks, forces local execution, and disables Hub upload.
+6. Use `--repo-id <namespace/name>` together with `--push-to-hub` to upload the aggregated dataset. Without `--push-to-hub`, `--repo-id` only controls the local aggregate repo id.
 
 ```bash
 python libero_h5.py \
-    --src-paths /path/to/libero/ \
-    --output-path /path/to/local \
+    --src-paths /path/to/libero/datasets/libero_90_no_noops \
+    --output-path /path/to/local/libero_90_lerobot \
     --executor local \
     --tasks-per-job 3 \
     --workers 10
