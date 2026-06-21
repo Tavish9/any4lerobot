@@ -45,7 +45,7 @@ class BaseAdapter(ABC):
     def save_episode(
         self,
         dataset: Any,
-        episode_data: Sequence[dict],
+        episode_data: Any,
         task: ConversionTask,
     ) -> bool:
         """Save one episode to the temporary dataset.
