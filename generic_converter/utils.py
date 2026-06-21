@@ -16,10 +16,6 @@ class ConversionTask:
     local_repo_id: str
     metadata: TaskMetadata = field(default_factory=dict)
 
-    def __post_init__(self):
-        if self.local_repo_id is None:
-            raise ValueError("ConversionTask.local_repo_id is required")
-
 
 def setup_logger():
     import sys
