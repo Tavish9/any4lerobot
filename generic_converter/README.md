@@ -71,7 +71,7 @@ override the optional hooks.
 
 - `input_path`: source file or directory
 - `output_path`: temporary LeRobot dataset directory for this task
-- `local_repo_id`: repo id used while writing the temporary dataset
+- `local_repo_id`: required repo id used while writing the temporary dataset
 - `metadata`: adapter-owned metadata
 
 Keep dataset-specific values in `metadata`; the generic pipeline does not know
