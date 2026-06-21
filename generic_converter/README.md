@@ -43,7 +43,13 @@ Optional attributes:
 Required methods:
 
 - `load_tasks(self) -> list[ConversionTask]`
-- `load_subset(self, task: ConversionTask) -> Iterable[Sequence[dict]]`
+- `load_subset(self, task: ConversionTask) -> Iterable[Any]`
+
+Optional hooks:
+
+- `create_dataset(self, task: ConversionTask)`
+- `save_episode(self, dataset, episode_data, task) -> bool`
+- `get_episode_length(self, episode_data) -> int`
 
 `run_converter` reads `adapter.output_path` and calls `adapter.load_tasks()`
 without arguments. Store paths, task manifests, or other adapter options on the
@@ -53,9 +59,11 @@ Use `adapter.temp_output_path` when building task-level temporary output paths.
 
 `load_subset` receives the full `ConversionTask`, not just an input path. Use
 `task.input_path` for raw data and `task.metadata` for dataset-specific values
-such as language instructions. Each yielded episode must be a sequence of frame
-dictionaries accepted by `LeRobotDataset.add_frame`; each frame should include
-the LeRobot `task` field when language tasks are needed.
+such as language instructions. By default, each yielded episode must be a
+sequence of frame dictionaries accepted by `LeRobotDataset.add_frame`; each
+frame should include the LeRobot `task` field when language tasks are needed.
+Adapters that need custom dataset classes or extra per-episode arguments can
+override the optional hooks.
 
 ## ConversionTask
 
@@ -63,7 +71,7 @@ the LeRobot `task` field when language tasks are needed.
 
 - `input_path`: source file or directory
 - `output_path`: temporary LeRobot dataset directory for this task
-- `local_repo_id`: repo id used while writing the temporary dataset
+- `local_repo_id`: required repo id used while writing the temporary dataset
 - `metadata`: adapter-owned metadata
 
 Keep dataset-specific values in `metadata`; the generic pipeline does not know

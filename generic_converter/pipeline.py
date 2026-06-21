@@ -33,13 +33,7 @@ class SaveLeRobotDataset(PipelineStep):
         if task.output_path.exists():
             shutil.rmtree(task.output_path)
 
-        dataset = LeRobotDataset.create(
-            repo_id=task.local_repo_id,
-            root=task.output_path,
-            fps=self.adapter.fps,
-            robot_type=self.adapter.robot_type,
-            features=self.adapter.features,
-        )
+        dataset = self.adapter.create_dataset(task)
 
         logger.info(
             f"start processing for {task.input_path}, saving to {task.output_path}"
@@ -47,11 +41,15 @@ class SaveLeRobotDataset(PipelineStep):
         raw_dataset = self.adapter.load_subset(task)
         for episode_index, episode_data in enumerate(raw_dataset):
             with self.track_time("saving episode"):
-                for frame in episode_data:
-                    dataset.add_frame(frame)
-                dataset.save_episode()
+                saved = self.adapter.save_episode(
+                    dataset,
+                    episode_data,
+                    task,
+                )
+                status = "skipped" if saved is False else "process done"
                 logger.info(
-                    f"process done for {dataset.repo_id}, episode {episode_index}, len {len(episode_data)}"
+                    f"{status} for {dataset.repo_id}, episode {episode_index}, "
+                    f"len {self.adapter.get_episode_length(episode_data)}"
                 )
         dataset.finalize()
 
@@ -97,10 +95,13 @@ def run_converter(
                 if workers == -1
                 else workers
             )
-            executor_cls, executor_config = LocalPipelineExecutor, {
-                "tasks": len(tasks),
-                "workers": resolved_workers,
-            }
+            executor_cls, executor_config = (
+                LocalPipelineExecutor,
+                {
+                    "tasks": len(tasks),
+                    "workers": resolved_workers,
+                },
+            )
         case "ray":
             import ray
             from datatrove.executor import RayPipelineExecutor
@@ -108,12 +109,15 @@ def run_converter(
 
             runtime_env = RuntimeEnv(env_vars=_build_ray_env_vars())
             ray.init(runtime_env=runtime_env)
-            executor_cls, executor_config = RayPipelineExecutor, {
-                "tasks": len(tasks),
-                "workers": workers,
-                "cpus_per_task": cpus_per_task,
-                "tasks_per_job": tasks_per_job,
-            }
+            executor_cls, executor_config = (
+                RayPipelineExecutor,
+                {
+                    "tasks": len(tasks),
+                    "workers": workers,
+                    "cpus_per_task": cpus_per_task,
+                    "tasks_per_job": tasks_per_job,
+                },
+            )
         case _:
             raise ValueError(f"Executor {executor} not supported")
 
@@ -121,7 +125,7 @@ def run_converter(
         logging_dir = str(resume_dir)
     else:
         logging_dir = str(Path.cwd() / "logs" / f"{get_timestamp()}_{get_random_str()}")
-    
+
     executor_cls(
         pipeline=[SaveLeRobotDataset(tasks, adapter)],
         **executor_config,

@@ -1,4 +1,3 @@
-import shutil
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -14,7 +13,7 @@ class ConversionTask:
 
     input_path: Path
     output_path: Path
-    local_repo_id: str | None = None
+    local_repo_id: str
     metadata: TaskMetadata = field(default_factory=dict)
 
 
