@@ -30,6 +30,7 @@ In this dataset, we have made several key improvements:
 
 - **Preservation of Agibot’s Original Information** 🧠: We have preserved as much of Agibot’s original information as possible, with field names strictly adhering to the original dataset’s naming conventions to ensure compatibility and consistency.
 - **State and Action as Dictionaries** 🧾: The traditional one-dimensional state and action have been transformed into dictionaries, allowing for greater flexibility in designing custom states and actions, enabling modular and scalable handling.
+- **Generic Conversion Pipeline**: Conversion now uses the shared `generic_converter` execution flow for local/Ray DataTrove execution, resumable logs, temporary per-task datasets, final aggregation, and optional Hub upload.
 
 Dataset Structure of `meta/info.json`:
 
@@ -116,10 +117,11 @@ Dataset Structure of `meta/info.json`:
    Follow instructions in [official repo](https://github.com/huggingface/lerobot?tab=readme-ov-file#installation).
 
 2. Install others:  
-   We use ray for parallel conversion, significantly speeding up data processing tasks by distributing the workload across multiple cores or nodes (if any).
+   We use DataTrove for conversion. Install the Ray extra if you want distributed execution across multiple cores or nodes.
    ```bash
    pip install h5py
-   pip install -U "ray[default]"
+   pip install -U datatrove
+   pip install -U "datatrove[ray]" # optional, for --executor ray
    ```
 
 ## Get started
@@ -161,12 +163,20 @@ git clone https://github.com/Tavish9/any4lerobot.git
 
 There are three types of end-effector, `gripper`, `dexhand` and `tactile`, specify the type before converting
 
+`--output-path` is the final aggregated LeRobot dataset root. Temporary per-task
+datasets are written next to it under `<output-name>_temp` and removed after
+aggregation.
+
+`--episodes-per-task` controls AgiBot conversion granularity. The default `1`
+creates one temporary dataset per raw episode for better Ray load balancing.
+
 ```bash
-python convert.py \
+python agibot_h5.py \
     --src-path /path/to/AgiBotWorld-Beta \
     --output-path /path/to/local \
     --eef-type gripper \
-    --num-cpus-per-task 3
+    --cpus-per-task 3 \
+    --episodes-per-task 1
 ```
 
 ### Execute the script:
