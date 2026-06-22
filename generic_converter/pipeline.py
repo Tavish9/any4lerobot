@@ -446,30 +446,51 @@ def _update_meta_data_without_fragmenting(df, dst_meta, meta_idx, data_idx, vide
 
         src_to_offset = video_idx.get("src_to_offset", {})
         src_to_dst = video_idx.get("src_to_dst", {})
+        row_index = pd.MultiIndex.from_arrays(
+            [orig_chunks, orig_files],
+            names=["chunk_index", "file_index"],
+        )
 
         if src_to_dst:
-            for idx, orig_chunk, orig_file in zip(
-                df.index, orig_chunks, orig_files, strict=False
-            ):
-                src_key = (orig_chunk, orig_file)
-                dst_chunk, dst_file = src_to_dst.get(
-                    src_key, (video_idx["chunk"], video_idx["file"])
-                )
-                df.at[idx, orig_chunk_col] = dst_chunk
-                df.at[idx, orig_file_col] = dst_file
-
-                offset = src_to_offset.get(src_key, 0)
-                df.at[idx, f"videos/{key}/from_timestamp"] += offset
-                df.at[idx, f"videos/{key}/to_timestamp"] += offset
+            src_keys = list(src_to_dst)
+            mapping_index = pd.MultiIndex.from_tuples(
+                src_keys,
+                names=["chunk_index", "file_index"],
+            )
+            mapping_df = pd.DataFrame(
+                [
+                    (
+                        *src_to_dst[src_key],
+                        src_to_offset.get(src_key, 0.0),
+                    )
+                    for src_key in src_keys
+                ],
+                index=mapping_index,
+                columns=["dst_chunk", "dst_file", "offset"],
+            )
+            reindexed = mapping_df.reindex(row_index)
+            df[orig_chunk_col] = (
+                reindexed["dst_chunk"]
+                .fillna(video_idx["chunk"])
+                .astype(orig_chunks.dtype, copy=False)
+                .to_numpy()
+            )
+            df[orig_file_col] = (
+                reindexed["dst_file"]
+                .fillna(video_idx["file"])
+                .astype(orig_files.dtype, copy=False)
+                .to_numpy()
+            )
+            offsets = reindexed["offset"].fillna(0.0).to_numpy(dtype=float)
+            df[f"videos/{key}/from_timestamp"] += offsets
+            df[f"videos/{key}/to_timestamp"] += offsets
         elif src_to_offset:
             df[orig_chunk_col] = video_idx["chunk"]
             df[orig_file_col] = video_idx["file"]
-            for idx, orig_chunk, orig_file in zip(
-                df.index, orig_chunks, orig_files, strict=False
-            ):
-                offset = src_to_offset.get((orig_chunk, orig_file), 0)
-                df.at[idx, f"videos/{key}/from_timestamp"] += offset
-                df.at[idx, f"videos/{key}/to_timestamp"] += offset
+            mapping_series = pd.Series(src_to_offset, dtype=float)
+            offsets = mapping_series.reindex(row_index).fillna(0.0).to_numpy()
+            df[f"videos/{key}/from_timestamp"] += offsets
+            df[f"videos/{key}/to_timestamp"] += offsets
         else:
             df[orig_chunk_col] = video_idx["chunk"]
             df[orig_file_col] = video_idx["file"]
