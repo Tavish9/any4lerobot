@@ -108,9 +108,10 @@ def load_local_dataset(
 
     if save_depth:
         depth_imgs = load_depths(ob_dir / "depth", "head_depth")
-        assert num_frames == len(depth_imgs), (
-            "Number of images and states are not equal"
-        )
+        if num_frames != len(depth_imgs):
+            raise ValueError(
+                f"Number of images ({len(depth_imgs)}) and states ({num_frames}) are not equal"
+            )
 
     state_key_prefix_len = len("observation.states.")
     action_key_prefix_len = len("actions.")
