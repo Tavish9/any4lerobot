@@ -175,9 +175,9 @@ If you find this repository helpful in your research or projects, please conside
 ## ⭐ Star History
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Tavish9/any4lerobot&type=Date&theme=dark" />
-  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Tavish9/any4lerobot&type=Date" />
-  <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Tavish9/any4lerobot&type=Date" />
+  <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=Tavish9/any4lerobot&type=Date&theme=dark" />
+  <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=Tavish9/any4lerobot&type=Date" />
+  <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=Tavish9/any4lerobot&type=Date" />
 </picture>
 
 <p align="right"><a href="#top">🔝 Back to top</a></p>
