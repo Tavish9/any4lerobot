@@ -251,7 +251,8 @@ class AgiBotDataset(LeRobotDataset):
         obj.writer: AgiBotDatasetWriter = AgiBotDatasetWriter(
             meta=obj.meta,
             root=obj.root,
-            camera_encoder=obj.writer._camera_encoder,
+            rgb_encoder=obj.writer._rgb_encoder,
+            depth_encoder=obj.writer._depth_encoder,
             encoder_threads=obj.writer._encoder_threads,
             batch_encoding_size=obj.writer._batch_encoding_size,
             streaming_encoder=obj.writer._streaming_encoder,
