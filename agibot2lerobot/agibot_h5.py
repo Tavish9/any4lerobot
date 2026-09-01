@@ -226,6 +226,20 @@ class AgiBotDatasetWriter(DatasetWriter):
         return temp_path
 
 
+def _writer_passthrough(writer: DatasetWriter) -> dict[str, Any]:
+    """Carry a DatasetWriter's own construction arguments over to a subclass.
+
+    lerobot renames these between releases (``vcodec`` in 0.5.x became
+    ``rgb_encoder``/``depth_encoder`` in 0.6.x), so read them off the writer
+    ``LeRobotDataset.create`` already built rather than naming them here.
+    """
+    return {
+        name: getattr(writer, f"_{name}")
+        for name in inspect.signature(DatasetWriter.__init__).parameters
+        if name not in ("self", "meta", "root") and hasattr(writer, f"_{name}")
+    }
+
+
 class AgiBotDataset(LeRobotDataset):
     @classmethod
     def create(cls, *args, **kwargs) -> "AgiBotDataset":
@@ -251,11 +265,7 @@ class AgiBotDataset(LeRobotDataset):
         obj.writer: AgiBotDatasetWriter = AgiBotDatasetWriter(
             meta=obj.meta,
             root=obj.root,
-            rgb_encoder=obj.writer._rgb_encoder,
-            depth_encoder=obj.writer._depth_encoder,
-            encoder_threads=obj.writer._encoder_threads,
-            batch_encoding_size=obj.writer._batch_encoding_size,
-            streaming_encoder=obj.writer._streaming_encoder,
+            **_writer_passthrough(obj.writer),
         )
         return obj
 

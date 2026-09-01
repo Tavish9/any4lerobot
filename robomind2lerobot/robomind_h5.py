@@ -202,6 +202,20 @@ class RoboMINDDatasetWriter(DatasetWriter):
             self.clear_episode_buffer(delete_images=len(self._meta.image_keys) > 0)
 
 
+def _writer_passthrough(writer: DatasetWriter) -> dict:
+    """Carry a DatasetWriter's own construction arguments over to a subclass.
+
+    lerobot renames these between releases (``vcodec`` in 0.5.x became
+    ``rgb_encoder``/``depth_encoder`` in 0.6.x), so read them off the writer
+    ``LeRobotDataset.create`` already built rather than naming them here.
+    """
+    return {
+        name: getattr(writer, f"_{name}")
+        for name in inspect.signature(DatasetWriter.__init__).parameters
+        if name not in ("self", "meta", "root") and hasattr(writer, f"_{name}")
+    }
+
+
 class RoboMINDDataset(LeRobotDataset):
     @classmethod
     def create(cls, *args, **kwargs) -> "RoboMINDDataset":
@@ -225,9 +239,7 @@ class RoboMINDDataset(LeRobotDataset):
         obj.writer: RoboMINDDatasetWriter = RoboMINDDatasetWriter(
             meta=obj.meta,
             root=obj.root,
-            vcodec=obj._vcodec,
-            encoder_threads=obj._encoder_threads,
-            batch_encoding_size=obj._batch_encoding_size,
+            **_writer_passthrough(obj.writer),
         )
         return obj
 
