@@ -30,7 +30,6 @@ import jsonlines
 import numpy as np
 import pyarrow.parquet as pq
 import tqdm
-from datasets import Dataset
 from huggingface_hub import snapshot_download
 from lerobot.datasets.io_utils import load_json, load_tasks, write_json
 from lerobot.datasets.utils import (
@@ -202,7 +201,7 @@ def convert_data(
                 episode_index=episode_index,
             )
             dest_path.parent.mkdir(parents=True, exist_ok=True)
-            Dataset(episode_table).to_parquet(dest_path)
+            pq.write_table(episode_table, dest_path)
 
 
 def _group_episodes_by_video_file(
