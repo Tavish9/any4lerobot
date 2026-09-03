@@ -30,18 +30,14 @@ import jsonlines
 import numpy as np
 import pyarrow.parquet as pq
 import tqdm
-from datasets import Dataset
 from huggingface_hub import snapshot_download
-from lerobot.datasets.io_utils import (
-    load_info,
-    load_tasks,
-    write_info,
-)
+from lerobot.datasets.io_utils import load_json, load_tasks, write_json
 from lerobot.datasets.utils import (
     DEFAULT_CHUNK_SIZE,
     DEFAULT_DATA_PATH,
     DEFAULT_VIDEO_PATH,
     EPISODES_DIR,
+    INFO_PATH,
     LEGACY_EPISODES_PATH,
     LEGACY_EPISODES_STATS_PATH,
     LEGACY_TASKS_PATH,
@@ -119,7 +115,7 @@ def convert_info(
     episode_records: list[dict[str, Any]],
     video_keys: list[str],
 ) -> None:
-    info = load_info(root)
+    info = load_json(root / INFO_PATH)
     logging.info("Converting info.json metadata to v2.1 schema")
 
     total_episodes = info.get("total_episodes") or len(episode_records)
@@ -148,7 +144,7 @@ def convert_info(
     )
     info["total_videos"] = total_episodes * len(video_keys)
 
-    write_info(info, new_root)
+    write_json(info, new_root / INFO_PATH)
 
 
 def _group_episodes_by_data_file(
@@ -205,7 +201,7 @@ def convert_data(
                 episode_index=episode_index,
             )
             dest_path.parent.mkdir(parents=True, exist_ok=True)
-            Dataset(episode_table).to_parquet(dest_path)
+            pq.write_table(episode_table, dest_path)
 
 
 def _group_episodes_by_video_file(
@@ -502,7 +498,7 @@ def convert_dataset(
     episode_records = load_episode_records(root)
     video_keys = [
         key
-        for key, ft in load_info(root)["features"].items()
+        for key, ft in load_json(root / INFO_PATH)["features"].items()
         if ft.get("dtype") == "video"
     ]
 

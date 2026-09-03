@@ -9,6 +9,12 @@
     pip install -e .
     ```
 
+    > [!NOTE]
+    > This step no longer resolves as written: that commit depends on `pyav>=12.0.5`, and `pyav`
+    > has no distributions on PyPI (the package is published as `av`). Installing with
+    > `--no-deps` and adding `av` alongside the remaining dependencies is enough to import the
+    > converter.
+
 2. Run the converter:
     ```bash
     python convert_dataset_v16_to_v20.py \
