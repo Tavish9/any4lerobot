@@ -1,7 +1,7 @@
 import os
 import shutil
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from datatrove.pipeline.base import PipelineStep
@@ -265,11 +265,103 @@ def _aggregate_datasets_with_normalized_arrays(**kwargs) -> None:
     aggregate_module.update_meta_data = _update_meta_data_without_fragmenting
     try:
         aggregate_datasets(**kwargs)
+        _recompute_aggregated_index_stats(Path(kwargs["aggr_root"]))
     finally:
         aggregate_module.aggregate_videos = original_aggregate_videos
         aggregate_module.pd.read_parquet = original_read_parquet
         aggregate_module.to_parquet_one_row_group_per_episode = original_writer
         aggregate_module.update_meta_data = original_update_meta_data
+
+
+def _recompute_aggregated_index_stats(root: Path) -> None:
+    """Recompute stats for columns whose values are remapped during aggregation.
+
+    LeRobot aggregates each source dataset's global stats after rewriting its
+    data indices.  Those source stats still contain local index values, so the
+    merged stats for index, episode_index, and task_index would be incorrect.
+    Read only those three lightweight parquet columns and rebuild their stats.
+    Per-episode task_index stats are also rebuilt from frame-level values because
+    an episode's unique task list does not retain per-task frame counts.
+    """
+    import numpy as np
+    import pandas as pd
+    import pyarrow.parquet as pq
+    from lerobot.datasets.compute_stats import RunningQuantileStats, get_feature_stats
+    from lerobot.datasets.io_utils import load_stats, write_stats
+
+    feature_keys = ("index", "episode_index", "task_index")
+    running = {key: RunningQuantileStats() for key in feature_keys}
+    first_values = {}
+    episode_task_stats = {}
+    total_rows = 0
+    data_paths = sorted((root / "data").rglob("*.parquet"))
+    if not data_paths:
+        raise ValueError(f"Aggregated dataset has no data parquet files: {root}")
+
+    for data_path in data_paths:
+        table = pq.read_table(data_path, columns=list(feature_keys))
+        if table.num_rows == 0:
+            continue
+        total_rows += table.num_rows
+        for key in feature_keys:
+            values = table[key].to_numpy(zero_copy_only=False).reshape(-1, 1)
+            first_values.setdefault(key, values[:1])
+            running[key].update(values)
+
+        episode_indices = table["episode_index"].to_numpy(zero_copy_only=False)
+        task_indices = table["task_index"].to_numpy(zero_copy_only=False)
+        episode_starts = np.concatenate(
+            ([0], np.flatnonzero(np.diff(episode_indices)) + 1)
+        )
+        episode_stops = np.append(episode_starts[1:], len(episode_indices))
+        for start, stop in zip(episode_starts, episode_stops, strict=True):
+            episode_index = int(episode_indices[start])
+            if episode_index in episode_task_stats:
+                raise ValueError(
+                    f"Episode {episode_index} spans multiple aggregated parquet files"
+                )
+            values = task_indices[start:stop].reshape(-1, 1)
+            episode_task_stats[episode_index] = get_feature_stats(
+                values, axis=0, keepdims=False
+            )
+
+    if total_rows == 0:
+        raise ValueError(f"Aggregated dataset has no data rows: {root}")
+
+    stats = load_stats(root)
+    if stats is None:
+        raise ValueError(f"Aggregated dataset has no stats metadata: {root}")
+    for key in feature_keys:
+        if total_rows == 1:
+            stats[key] = get_feature_stats(
+                np.asarray(first_values[key]), axis=0, keepdims=False
+            )
+        else:
+            stats[key] = running[key].get_statistics()
+    write_stats(stats, root)
+
+    episode_paths = sorted((root / "meta" / "episodes").rglob("*.parquet"))
+    if not episode_paths:
+        raise ValueError(
+            f"Aggregated dataset has no episode metadata parquet files: {root}"
+        )
+    for episode_path in episode_paths:
+        episode_df = pd.read_parquet(episode_path)
+        missing = (
+            set(episode_df["episode_index"].astype(int)) - episode_task_stats.keys()
+        )
+        if missing:
+            raise ValueError(
+                f"Aggregated episode metadata has no matching data for episodes: {sorted(missing)}"
+            )
+        for stat in next(iter(episode_task_stats.values())):
+            column = f"stats/task_index/{stat}"
+            if column in episode_df.columns:
+                episode_df[column] = [
+                    episode_task_stats[int(episode_index)][stat]
+                    for episode_index in episode_df["episode_index"]
+                ]
+        _normalize_array_values(episode_df).to_parquet(episode_path)
 
 
 def _aggregate_videos_by_key_parallel(
@@ -501,11 +593,32 @@ def _update_meta_data_without_fragmenting(df, dst_meta, meta_idx, data_idx, vide
                 df[f"videos/{key}/to_timestamp"] + video_idx["latest_duration"]
             )
 
-    df["dataset_from_index"] = df["dataset_from_index"] + dst_meta.info.total_frames
-    df["dataset_to_index"] = df["dataset_to_index"] + dst_meta.info.total_frames
-    df["episode_index"] = df["episode_index"] + dst_meta.info.total_episodes
+    total_frames = _metadata_info_value(dst_meta.info, "total_frames")
+    total_episodes = _metadata_info_value(dst_meta.info, "total_episodes")
+    df["dataset_from_index"] = df["dataset_from_index"] + total_frames
+    df["dataset_to_index"] = df["dataset_to_index"] + total_frames
+    df["episode_index"] = df["episode_index"] + total_episodes
+
+    # LeRobot 0.6 stores statistics for its generated index columns in each
+    # episode row. Keep those statistics consistent with the remapped values.
+    shift_stat_keys = ("min", "max", "mean", "q01", "q10", "q50", "q90", "q99")
+    for name, offset in (
+        ("episode_index", total_episodes),
+        ("index", total_frames),
+    ):
+        for stat in shift_stat_keys:
+            column = f"stats/{name}/{stat}"
+            if column in df.columns:
+                df[column] = df[column] + offset
 
     return df
+
+
+def _metadata_info_value(info, key: str):
+    """Read a metadata value across LeRobot's dict and typed-info releases."""
+    if isinstance(info, Mapping):
+        return info[key]
+    return getattr(info, key)
 
 
 def _normalize_array_values(df):
