@@ -67,7 +67,9 @@ def audit_dataset(root: Path) -> tuple[list[str], int, int, int]:
         return [f"Expected LeRobot v3.0, found {version!r}"], 0, 0, 0
 
     video_features = [
-        key for key, feature in info.get("features", {}).items() if feature.get("dtype") == "video"
+        key
+        for key, feature in info.get("features", {}).items()
+        if feature.get("dtype") == "video"
     ]
     if not video_features:
         return ["No video features declared in meta/info.json"], 0, 0, 0
@@ -90,13 +92,20 @@ def audit_dataset(root: Path) -> tuple[list[str], int, int, int]:
         total_data_rows += len(indices)
 
     episode_ids = [int(row["episode_index"]) for row in episodes]
-    duplicate_ids = sorted(index for index, count in Counter(episode_ids).items() if count > 1)
+    duplicate_ids = sorted(
+        index for index, count in Counter(episode_ids).items() if count > 1
+    )
     if duplicate_ids:
         findings.append(f"Duplicate episode metadata rows: {duplicate_ids}")
 
     video_template = info.get("video_path")
     if not video_template:
-        return ["meta/info.json has no video_path template"], len(episodes), total_data_rows, 0
+        return (
+            ["meta/info.json has no video_path template"],
+            len(episodes),
+            total_data_rows,
+            0,
+        )
 
     # Decode each video file once, even when it contains many episode segments.
     file_rows: dict[tuple[str, int, int], list[dict[str, Any]]] = defaultdict(list)
@@ -124,7 +133,7 @@ def audit_dataset(root: Path) -> tuple[list[str], int, int, int]:
             continue
         try:
             frame_times = _decode_frame_times(video_path)
-        except Exception as exc:  # report a damaged/unreadable video as a finding
+        except (av.error.FFmpegError, OSError, ValueError) as exc:
             findings.append(f"Cannot decode {video_path}: {exc}")
             continue
 
@@ -179,7 +188,9 @@ def audit_dataset(root: Path) -> tuple[list[str], int, int, int]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("dataset_root", type=Path, help="Local LeRobot v3 dataset directory")
+    parser.add_argument(
+        "dataset_root", type=Path, help="Local LeRobot v3 dataset directory"
+    )
     args = parser.parse_args()
 
     findings, episode_count, data_rows, video_frames = audit_dataset(args.dataset_root)
