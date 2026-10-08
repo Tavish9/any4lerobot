@@ -179,6 +179,21 @@ python agibot_h5.py \
     --episodes-per-task 1
 ```
 
+### Check a converted dataset for episode/video alignment
+
+After conversion, run the local read-only check against the output directory:
+
+```bash
+python agibot2lerobot/check_episode_alignment.py /path/to/local
+```
+
+The checker compares each episode's Parquet row count and metadata length with
+the decoded frame count in every referenced camera-video time range. It exits
+with status `1` and names the affected episode and camera when a mismatch is
+found. This checks frame counts and episode boundaries, not visual content or
+sensor-level synchronization. It reads only local files and does not contact
+the Hub.
+
 ### Execute the script:
 
 #### For single node
