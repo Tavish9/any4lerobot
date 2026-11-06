@@ -141,6 +141,7 @@ A curated collection of utilities for [LeRobot Projects](https://github.com/hugg
 - [CRISP](https://utiasdsl.github.io/crisp_controllers/): Record datasets and deploy policies using LeRobot and ROS2-compatible manipulators (Franka Robotics FR3 and more supported) [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/utiasdsl/crisp_controllers">](https://github.com/utiasdsl/crisp_controllers)
 - [lerobot-jetson](https://github.com/ravediamond/lerobot-jetson): Docker image with CUDA PyTorch, torchcodec and torchvision built from source for LeRobot on NVIDIA Jetson Orin (JetPack 6) [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/ravediamond/lerobot-jetson">](https://github.com/ravediamond/lerobot-jetson)
 - [paper-vs-hardware](https://shissorobotics.com/papers/): robot-learning papers re-tested with LeRobot on an SO-101 + Jetson Orin NX, each with the bar set before the run, the verdict and code to reproduce it [<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/ravediamond/paper-vs-hardware">](https://github.com/ravediamond/paper-vs-hardware)
+- [Modurobot SO-101 checklist](https://modurobot.com/so101.html): free worksheet to check an SO-101 shopping list before ordering (what each kit includes, what you already own, what still needs a price, with dated supplier prices), plus a free in-browser 3D robot sim
 
 ## 👷‍♂️ Contributing
 
